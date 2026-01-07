@@ -42,16 +42,53 @@ A modern, feature-rich React Native news application built with Expo. Stay updat
    pnpm install
    ```
 
-3. **Start the development server**
+3. **Configure environment variables**
+
+   Create a `.env` file in the `native` directory:
+
+   ```env
+   # News API Configuration
+   EXPO_PUBLIC_API_URL=https://your-api-domain.vercel.app
+   EXPO_PUBLIC_API_KEY=your-secret-api-key
+   ```
+
+   > ⚠️ The `EXPO_PUBLIC_API_KEY` must match the `API_SECRET_KEY` configured on the backend API.
+
+4. **Start the development server**
 
    ```bash
    npx expo start
    ```
 
-4. **Run the app**
+5. **Run the app**
    - **Mobile**: Scan the QR code shown in the terminal with the **Expo Go** app (Android) or Camera app (iOS).
    - **Emulator**: Press `a` for Android Emulator or `i` for iOS Simulator.
    - **Web**: Press `w` to run in the web browser.
+
+## 🏗️ Building for Production
+
+### Android Release APK
+
+1. Navigate to the native folder:
+
+   ```bash
+   cd native
+   ```
+
+2. Build the release APK:
+
+   ```bash
+   cd android
+   .\gradlew.bat assembleRelease   # Windows
+   ./gradlew assembleRelease       # Linux/Mac
+   ```
+
+3. The APK will be generated at:
+   ```
+   android/app/build/outputs/apk/release/app-release.apk
+   ```
+
+> 💡 Environment variables with the `EXPO_PUBLIC_` prefix are embedded into the JavaScript bundle at build time, so they work correctly in release builds.
 
 ## 📂 Project Structure
 
@@ -66,6 +103,13 @@ A modern, feature-rich React Native news application built with Expo. Stay updat
 ├── assets/               # Images, fonts, and other static assets
 └── constants/            # App constants and configuration
 ```
+
+## 🔐 Environment Variables
+
+| Variable              | Description                                                    |
+| --------------------- | -------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL` | Base URL of the News API (e.g., `https://news-api.vercel.app`) |
+| `EXPO_PUBLIC_API_KEY` | API key for authenticating with the backend                    |
 
 ## 🤝 Contributing
 
