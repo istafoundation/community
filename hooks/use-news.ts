@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Deployed News API on Vercel
-const API_BASE_URL = "https://news-api-brown-six.vercel.app";
+// API Configuration from environment variables
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "";
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || "";
 
 // Pool of countries to fetch from for variety
 const COUNTRIES = ["us", "gb", "ca", "au", "in", "de", "fr", "it", "es", "br"];
@@ -114,7 +115,11 @@ export function useNews(options: UseNewsOptions = {}): UseNewsResult {
       if (query) params.set("query", query);
       if (location) params.set("location", location);
 
-      const response = await fetch(`${API_BASE_URL}/api/news?${params}`);
+      const response = await fetch(`${API_BASE_URL}/api/news?${params}`, {
+        headers: {
+          'X-API-Key': API_KEY,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -170,7 +175,11 @@ export function useNews(options: UseNewsOptions = {}): UseNewsResult {
       if (query) params.set("query", query);
       if (location) params.set("location", location);
 
-      const response = await fetch(`${API_BASE_URL}/api/news?${params}`);
+      const response = await fetch(`${API_BASE_URL}/api/news?${params}`, {
+        headers: {
+          'X-API-Key': API_KEY,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
