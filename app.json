@@ -2,7 +2,7 @@
   "expo": {
     "name": "ISTA Community",
     "slug": "ista-community",
-    "version": "1.0.0",
+    "version": "1.0.0-alpha",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "istacommunity",
