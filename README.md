@@ -1,119 +1,135 @@
 # ISTA Community Native App
 
-A modern, feature-rich React Native news application built with Expo. Stay updated with the latest headlines, tailored Indian news, and specific topics of interest, all wrapped in a beautiful, responsive interface.
+A holistic mobile application blending curated news, mental health resources, and an AI-powered community companion. Built with **React Native** and **Expo**, this app provides a seamless experience for staying informed and mindful.
 
-## 📱 Features
+## 📱 Key Features
 
-- **Curated News Feed**: Browse top headlines, Indian market news, and various specific topics.
-- **topic-based Filtering**: Quickly switch between different news categories using interactive chips.
-- **In-App Reading**: Seamlessly read full articles within the app using an optimized WebView experience.
-- **Dark & Light Mode**: Fully supported theming that adapts to your system preferences or manual toggle.
-- **Smooth Animations**: Enhanced user experience with fluid transitions and loading states.
-- **Native Performance**: Built with React Native and Expo for a smooth, native feel on iOS and Android.
+### 📰 Smart News Feed
+
+- **Curated Content**: Access top headlines and market news tailored to your interests.
+- **Topic Filtering**: Dynamic chips to filter news by specific topics (e.g., Technology, Health, Business).
+- **In-App Reading**: Read full articles without leaving the app, optimized for mobile viewing.
+
+### 🧠 Mental Health & Mindfulness
+
+- **Mindful Resources**: Dedicated section for mental health resources and mindfulness exercises. (Currently only through AI but plans for turning to an AI Agent in the future)
+- **AI Companion**: Integrated AI Chat context to provide support and answer queries (powered by Open Router integration).
+- **Mood Tracking**: (Planned) Simple tools to track daily mood and wellbeing.
+
+### 🔐 Secure Authentication
+
+- **Powered by Clerk**: Robust sign-up and sign-in flows using Clerk authentication.
+- **Social Login**: Easy access via Google and other social providers.
+- **Secure Profile**: User profile management with secure token handling.
+
+### 🎨 Modern UI/UX
+
+- **Adaptive Theming**: Beautiful dark and light modes that sync with system preferences.
+- **Smooth Animations**: Powered by `react-native-reanimated` for fluid interactions.
+- **Haptic Feedback**: Subtle tactile responses for a premium feel.
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [Expo](https://expo.dev/) (React Native)
-- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (File-based routing)
+- **Framework**: [Expo](https://expo.dev/) (React Native SDK 52+)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **UI/Styling**: React Native StyleSheet, [Expo Vector Icons](https://icons.expo.fyi/)
-- **Web View**: `react-native-webview`
-- **Animations**: `react-native-reanimated`
-- **State Management**: React Context & Hooks
+- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/)
+- **Authentication**: [Clerk](https://clerk.com/docs/quickstarts/expo)
+- **News API**: Custom Node.js API (powered by GNews)
+- **Styling**: Native StyleSheet & Expo Vector Icons
+- **State Management**: React Context & Hooks (Zustand for complex state)
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (LTS recommended)
-- [Expo Go](https://expo.dev/go) app on your mobile device (or an Emulator/Simulator)
+- **Node.js** (LTS version recommended)
+- **Expo Go** app on your mobile device (Android/iOS)
+- **Git**
 
 ### Installation
 
-1. **Clone the repository** (if applicable)
+1. **Clone the repository**:
 
-2. **Install dependencies**
+   ```bash
+   git clone https://github.com/istafoundation/community.git
+   cd community
+   ```
+
+2. **Install dependencies**:
 
    ```bash
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
    ```
 
-3. **Configure environment variables**
+3. **Configure Environment Variables**:
+   Create a `.env` file in the `native` root directory. You can copy `.env.example` as a template:
 
-   Create a `.env` file in the `native` directory:
+   ```bash
+   cp .env.example .env
+   ```
+
+   **Required Variables:**
 
    ```env
-   # News API Configuration
+   # API Configuration
    EXPO_PUBLIC_API_URL=https://your-api-domain.vercel.app
    EXPO_PUBLIC_API_KEY=your-secret-api-key
+
+   # Clerk Authentication
+   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
    ```
 
-   > ⚠️ The `EXPO_PUBLIC_API_KEY` must match the `API_SECRET_KEY` configured on the backend API.
-
-4. **Start the development server**
+4. **Start the Development Server**:
 
    ```bash
    npx expo start
    ```
 
-5. **Run the app**
-   - **Mobile**: Scan the QR code shown in the terminal with the **Expo Go** app (Android) or Camera app (iOS).
-   - **Emulator**: Press `a` for Android Emulator or `i` for iOS Simulator.
-   - **Web**: Press `w` to run in the web browser.
-
-## 🏗️ Building for Production
-
-### Android Release APK
-
-1. Navigate to the native folder:
-
-   ```bash
-   cd native
-   ```
-
-2. Build the release APK:
-
-   ```bash
-   cd android
-   .\gradlew.bat assembleRelease   # Windows
-   ./gradlew assembleRelease       # Linux/Mac
-   ```
-
-3. The APK will be generated at:
-   ```
-   android/app/build/outputs/apk/release/app-release.apk
-   ```
-
-> 💡 Environment variables with the `EXPO_PUBLIC_` prefix are embedded into the JavaScript bundle at build time, so they work correctly in release builds.
+5. **Run the App**:
+   - **Scan QR Code**: Use the **Expo Go** app (Android) or Camera (iOS).
+   - **Emulators**: Press `a` for Android Emulator or `i` for iOS Simulator.
 
 ## 📂 Project Structure
 
 ```
-├── app/                  # Expo Router pages and layouts
-│   ├── (tabs)/           # Tab navigation screens
-│   ├── article.tsx       # Article reading screen
-│   └── _layout.tsx       # Root layout configuration
-├── components/           # Reusable UI components
-├── contexts/             # Global state providers (Theme, Categories)
-├── hooks/                # Custom React hooks (useNews, useColorScheme)
-├── assets/               # Images, fonts, and other static assets
-└── constants/            # App constants and configuration
+community/
+├── app/                  # Screens and Navigation (Expo Router)
+│   ├── (auth)/           # Authentication screens (Sign In, Sign Up)
+│   ├── (tabs)/           # Main Tab Navigation (Home, Explore, Mindful, Profile)
+│   └── _layout.tsx       # Root Layout
+├── components/           # Reusable UI Components
+├── contexts/             # Global Contexts (Auth, Theme, News, Chat)
+├── hooks/                # Custom Hooks (useNews, useThemeColor)
+├── constants/            # Configuration & Static Data
+└── assets/               # Images and Fonts
 ```
 
-## 🔐 Environment Variables
+## 🏗️ Production Build
 
-| Variable              | Description                                                    |
-| --------------------- | -------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL` | Base URL of the News API (e.g., `https://news-api.vercel.app`) |
-| `EXPO_PUBLIC_API_KEY` | API key for authenticating with the backend                    |
+To build a standalone APK/IPA:
+
+1. **Configure EAS** (Expo Application Services):
+
+   ```bash
+   eas build:configure
+   ```
+
+2. **Build for Android**:
+
+   ```bash
+   eas build --platform android --profile production
+   ```
+
+3. **Build for iOS**:
+   ```bash
+   eas build --platform ios --profile production
+   ```
+
+> **Note**: Ensure your `app.json` is correctly configured with your bundle identifier and signed credentials.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions! Please fork the repository and submit a Pull Request. Ensure you follow the existing code style and linting rules.
 
 ## 📄 License
 
