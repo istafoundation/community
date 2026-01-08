@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -86,7 +87,7 @@ export default function SignInScreen() {
       // Start the authentication process using the proper redirect URI
       const { createdSessionId, setActive: setActiveSession, signIn: ssoSignIn, signUp: ssoSignUp } = await startSSOFlow({
         strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri(),
+        redirectUrl: Linking.createURL('/(auth)/sign-in', { scheme: 'istacommunity' }),
       });
 
       // If sign in was successful, set the active session

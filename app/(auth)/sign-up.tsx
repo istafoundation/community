@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -152,7 +153,7 @@ export default function SignUpScreen() {
       // Start the authentication process using the proper redirect URI
       const { createdSessionId, setActive: setActiveSession, signUp: ssoSignUp } = await startSSOFlow({
         strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri(),
+        redirectUrl: Linking.createURL('/(auth)/sign-up', { scheme: 'istacommunity' }),
       });
 
       // If we already have a session, activate it and navigate to username selection
