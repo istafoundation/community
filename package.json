@@ -1,14 +1,20 @@
 {
   "name": "istafoundation",
   "main": "expo-router/entry",
-  "version": "1.0.0-alpha",
+  "version": "1.0.1",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "version:patch": "npm version patch --no-git-tag-version && node ./scripts/sync-version.js",
+    "version:minor": "npm version minor --no-git-tag-version && node ./scripts/sync-version.js",
+    "version:major": "npm version major --no-git-tag-version && node ./scripts/sync-version.js",
+    "build:release": "npm run version:patch && node ./scripts/build-release.js",
+    "build:release:minor": "npm run version:minor && node ./scripts/build-release.js",
+    "build:release:major": "npm run version:major && node ./scripts/build-release.js"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.16",
@@ -20,9 +26,11 @@
     "expo-auth-session": "^7.0.10",
     "expo-constants": "~18.0.13",
     "expo-crypto": "^15.0.8",
+    "expo-file-system": "^19.0.21",
     "expo-font": "~14.0.10",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
+    "expo-intent-launcher": "^13.0.8",
     "expo-linear-gradient": "^15.0.8",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.21",

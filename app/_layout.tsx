@@ -8,6 +8,8 @@ import 'react-native-reanimated';
 import { CategoryProvider } from '@/contexts/category-context';
 import { ChatProvider } from '@/contexts/chat-context';
 import { PreferencesProvider, usePreferences } from '@/contexts/preferences-context';
+import { useVersionCheck } from '@/hooks/useVersionCheck';
+import { UpdateDownloader } from '@/components/UpdateDownloader';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
@@ -21,6 +23,9 @@ export const unstable_settings = {
 
 function RootLayoutNav() {
   const { isDark } = usePreferences();
+  
+  // Check for app updates on launch
+  const { showDownloader, closeDownloader, updateInfo } = useVersionCheck();
 
   return (
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
@@ -38,6 +43,16 @@ function RootLayoutNav() {
         />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+      
+      {/* In-app update downloader */}
+      {updateInfo && (
+        <UpdateDownloader
+          visible={showDownloader}
+          updateUrl={updateInfo.downloadUrl}
+          version={updateInfo.version}
+          onClose={closeDownloader}
+        />
+      )}
     </ThemeProvider>
   );
 }
