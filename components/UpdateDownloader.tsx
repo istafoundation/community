@@ -86,18 +86,26 @@ export function UpdateDownloader({ visible, updateUrl, version, onClose }: Updat
   }, [updateUrl, version]);
 
   const installUpdate = useCallback(async () => {
-    if (!downloadedFileUri) return;
+    if (!downloadedFileUri) {
+      console.error('[UpdateDownloader] No downloaded file URI');
+      return;
+    }
 
     try {
+      console.log('[UpdateDownloader] Getting content URI for:', downloadedFileUri);
       // Get a content URI that Android can use
       const contentUri = await getContentUriAsync(downloadedFileUri);
+      console.log('[UpdateDownloader] Content URI:', contentUri);
       
       // Launch Android's package installer
+      // Flags: FLAG_GRANT_READ_URI_PERMISSION (1) | FLAG_ACTIVITY_NEW_TASK (0x10000000)
+      console.log('[UpdateDownloader] Starting package installer activity...');
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: contentUri,
-        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+        flags: 1 | 0x10000000, // FLAG_GRANT_READ_URI_PERMISSION | FLAG_ACTIVITY_NEW_TASK
         type: 'application/vnd.android.package-archive',
       });
+      console.log('[UpdateDownloader] Install intent launched successfully');
       
       onClose();
     } catch (err) {
