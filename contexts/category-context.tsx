@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEY = '@ista_enabled_categories';
 
 export interface Category {
   id: string;
@@ -25,6 +28,7 @@ interface CategoryContextType {
   isEnabled: (id: string) => boolean;
   getEnabledCategories: () => Category[];
   getDisabledCategories: () => Category[];
+  isLoading: boolean;
 }
 
 const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
@@ -33,6 +37,47 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
   const [enabledCategoryIds, setEnabledCategoryIds] = useState<string[]>(
     ALL_CATEGORIES.map(c => c.id)
   );
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load saved categories on mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  // Save categories whenever they change (after initial load)
+  useEffect(() => {
+    if (!isLoading) {
+      saveCategories(enabledCategoryIds);
+    }
+  }, [enabledCategoryIds, isLoading]);
+
+  const loadCategories = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        // Validate that saved categories are still valid
+        const validIds = parsed.filter(id => 
+          ALL_CATEGORIES.some(c => c.id === id)
+        );
+        if (validIds.length >= 2) {
+          setEnabledCategoryIds(validIds);
+        }
+      }
+    } catch (error) {
+      console.error('[CategoryContext] Failed to load categories:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveCategories = async (ids: string[]) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch (error) {
+      console.error('[CategoryContext] Failed to save categories:', error);
+    }
+  };
 
   const enableCategory = useCallback((id: string) => {
     setEnabledCategoryIds(prev => {
@@ -69,6 +114,7 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
         isEnabled,
         getEnabledCategories,
         getDisabledCategories,
+        isLoading,
       }}
     >
       {children}

@@ -3,6 +3,7 @@ import { useCategories } from '@/contexts/category-context';
 import { THEME_MODES, usePreferences } from '@/contexts/preferences-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Link } from 'expo-router';
 import { Image } from 'expo-image';
 import React from 'react';
@@ -287,7 +288,7 @@ export default function ProfileScreen() {
             <View style={styles.menuRow}>
               <Ionicons name="information-circle-outline" size={22} color="#007AFF" />
               <Text style={[styles.menuLabel, isDark && styles.textDark]}>App Version</Text>
-              <Text style={[styles.menuValue, isDark && styles.textMuted]}>1.0.0</Text>
+              <Text style={[styles.menuValue, isDark && styles.textMuted]}>{Constants.expoConfig?.version || '1.0.0'}</Text>
             </View>
           </View>
         </View>

@@ -1,5 +1,8 @@
 import Constants from 'expo-constants';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEY = '@ista_chat_messages';
 
 export interface ChatMessage {
   id: string;
@@ -15,6 +18,7 @@ interface ChatContextType {
   error: string | null;
   sendMessage: (content: string) => Promise<void>;
   clearChat: () => void;
+  isInitialized: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -29,8 +33,47 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const streamingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load chat history on mount
+  useEffect(() => {
+    loadChatHistory();
+  }, []);
+
+  // Save chat history whenever messages change (after initial load)
+  useEffect(() => {
+    if (isInitialized && messages.length > 0) {
+      saveChatHistory(messages);
+    }
+  }, [messages, isInitialized]);
+
+  const loadChatHistory = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as ChatMessage[];
+        // Filter out any streaming messages from previous sessions
+        const validMessages = parsed.filter(msg => !msg.isStreaming);
+        setMessages(validMessages);
+      }
+    } catch (error) {
+      console.error('[ChatContext] Failed to load chat history:', error);
+    } finally {
+      setIsInitialized(true);
+    }
+  };
+
+  const saveChatHistory = async (msgs: ChatMessage[]) => {
+    try {
+      // Only save completed messages (not streaming ones)
+      const toSave = msgs.filter(msg => !msg.isStreaming);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch (error) {
+      console.error('[ChatContext] Failed to save chat history:', error);
+    }
+  };
 
   // Cleanup streaming interval on unmount
   useEffect(() => {
@@ -162,7 +205,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [messages, isLoading, simulateStreaming]);
 
-  const clearChat = useCallback(() => {
+  const clearChat = useCallback(async () => {
     // Abort any ongoing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -175,10 +218,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setMessages([]);
     setError(null);
     setIsLoading(false);
+    
+    // Clear from storage
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('[ChatContext] Failed to clear chat history:', error);
+    }
   }, []);
 
   return (
-    <ChatContext.Provider value={{ messages, isLoading, error, sendMessage, clearChat }}>
+    <ChatContext.Provider value={{ messages, isLoading, error, sendMessage, clearChat, isInitialized }}>
       {children}
     </ChatContext.Provider>
   );
