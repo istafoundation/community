@@ -253,7 +253,7 @@ export default function MindfulScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const { messages, isLoading, error, sendMessage, clearChat } = useChat();
+  const { messages, isLoading, error, sendMessage, clearChat, remainingMessages, isLimitReached, dailyLimit } = useChat();
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -507,15 +507,38 @@ export default function MindfulScreen() {
           <Ionicons name="heart" size={28} color="#007AFF" />
           <Text style={[styles.headerTitle, isDark && styles.textDark]}>Mindful</Text>
         </View>
-        {messages.length > 0 && (
-          <Pressable 
-            onPress={clearChat} 
-            style={[styles.clearBtn, isDark && styles.clearBtnDark]}
-          >
-            <Ionicons name="refresh-outline" size={18} color="#007AFF" />
-          </Pressable>
-        )}
+        <View style={styles.headerRight}>
+          {/* Rate limit counter */}
+          <View style={[styles.rateLimitBadge, isDark && styles.rateLimitBadgeDark]}>
+            <Ionicons name="chatbubble-outline" size={14} color={isLimitReached ? '#ff3b30' : '#007AFF'} />
+            <Text style={[
+              styles.rateLimitText, 
+              isDark && styles.textDark,
+              isLimitReached && styles.rateLimitExhausted
+            ]}>
+              {remainingMessages}/{dailyLimit}
+            </Text>
+          </View>
+          {messages.length > 0 && (
+            <Pressable 
+              onPress={clearChat} 
+              style={[styles.clearBtn, isDark && styles.clearBtnDark]}
+            >
+              <Ionicons name="refresh-outline" size={18} color="#007AFF" />
+            </Pressable>
+          )}
+        </View>
       </View>
+
+      {/* Rate limit warning banner */}
+      {isLimitReached && (
+        <View style={styles.limitBanner}>
+          <Ionicons name="time-outline" size={18} color="#ff9500" />
+          <Text style={styles.limitBannerText}>
+            Daily limit reached. Resets at midnight (IST).
+          </Text>
+        </View>
+      )}
 
       {/* Chat Area - using FlatList for better performance */}
       {messages.length === 0 ? (
@@ -690,6 +713,48 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1a1a1a',
     letterSpacing: -0.5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  rateLimitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#007AFF15',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  rateLimitBadgeDark: {
+    backgroundColor: '#007AFF30',
+  },
+  rateLimitText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  rateLimitExhausted: {
+    color: '#ff3b30',
+  },
+  limitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ff950020',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  limitBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#ff9500',
+    fontWeight: '500',
   },
   textDark: {
     color: '#fff',

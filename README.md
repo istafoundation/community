@@ -14,6 +14,8 @@ A holistic mobile application blending curated news, mental health resources, an
 
 - **Mindful Resources**: Dedicated section for mental health resources and mindfulness exercises. (Currently only through AI but plans for turning to an AI Agent in the future)
 - **AI Companion**: Integrated AI Chat context to provide support and answer queries (powered by Open Router integration).
+- **Persistent Chat**: Chat history synced to cloud - persists across logout/reinstall.
+- **Rate Limiting**: 10 messages per day for free users (resets at midnight IST).
 - **Mood Tracking**: (Planned) Simple tools to track daily mood and wellbeing.
 
 ### 🔐 Secure Authentication
@@ -34,6 +36,7 @@ A holistic mobile application blending curated news, mental health resources, an
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/)
 - **Authentication**: [Clerk](https://clerk.com/docs/quickstarts/expo)
+- **Database**: [Convex](https://convex.dev/) - Real-time backend for chat persistence & user data
 - **News API**: Custom Node.js API (powered by GNews)
 - **Styling**: Native StyleSheet & Expo Vector Icons
 - **State Management**: React Context & Hooks (Zustand for complex state)
@@ -77,15 +80,26 @@ A holistic mobile application blending curated news, mental health resources, an
 
    # Clerk Authentication
    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+
+   # Convex Database
+   EXPO_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
    ```
 
-4. **Start the Development Server**:
+4. **Initialize Convex** (first time only):
+
+   ```bash
+   npx convex dev
+   ```
+
+   This will create a new Convex project and deploy the schema.
+
+5. **Start the Development Server**:
 
    ```bash
    npx expo start
    ```
 
-5. **Run the App**:
+6. **Run the App**:
    - **Scan QR Code**: Use the **Expo Go** app (Android) or Camera (iOS).
    - **Emulators**: Press `a` for Android Emulator or `i` for iOS Simulator.
 
@@ -99,6 +113,11 @@ community/
 │   └── _layout.tsx       # Root Layout
 ├── components/           # Reusable UI Components
 ├── contexts/             # Global Contexts (Auth, Theme, News, Chat)
+├── convex/               # Convex Backend Functions
+│   ├── schema.ts         # Database Schema (users, chatMessages)
+│   ├── users.ts          # User sync & rate limiting
+│   ├── chat.ts           # Chat persistence
+│   └── _generated/       # Auto-generated types
 ├── hooks/                # Custom Hooks (useNews, useThemeColor)
 ├── constants/            # Configuration & Static Data
 └── assets/               # Images and Fonts

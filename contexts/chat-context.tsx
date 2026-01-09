@@ -1,8 +1,16 @@
+import { useAuth } from "@clerk/clerk-expo";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ConvexReactClient } from "convex/react";
 import Constants from 'expo-constants';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 
-const STORAGE_KEY = '@ista_chat_messages';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
+const API_KEY = Constants.expoConfig?.extra?.apiKey || process.env.EXPO_PUBLIC_API_KEY;
+
+// Typing speed in milliseconds per character
+const TYPING_SPEED = 1;
 
 export interface ChatMessage {
   id: string;
@@ -19,17 +27,15 @@ interface ChatContextType {
   sendMessage: (content: string) => Promise<void>;
   clearChat: () => void;
   isInitialized: boolean;
+  remainingMessages: number;
+  isLimitReached: boolean;
+  dailyLimit: number;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
-const API_KEY = Constants.expoConfig?.extra?.apiKey || process.env.EXPO_PUBLIC_API_KEY;
-
-// Typing speed in milliseconds per character
-const TYPING_SPEED = 1;
-
-export function ChatProvider({ children }: { children: React.ReactNode }) {
+function ChatProviderInner({ children }: { children: React.ReactNode }) {
+  const { userId } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,43 +43,40 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const streamingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load chat history on mount
-  useEffect(() => {
-    loadChatHistory();
-  }, []);
+  // Convex queries and mutations
+  const user = useQuery(api.users.getUser, userId ? { clerkId: userId } : "skip");
+  const chatHistory = useQuery(api.chat.getChatHistory, userId ? { clerkId: userId } : "skip");
+  const syncUserMutation = useMutation(api.users.syncUser);
+  const checkAndIncrementMutation = useMutation(api.users.checkAndIncrementMessageCount);
+  const addMessageMutation = useMutation(api.chat.addMessage);
+  const clearChatMutation = useMutation(api.chat.clearChat);
 
-  // Save chat history whenever messages change (after initial load)
+  // Rate limit info
+  const remainingMessages = user?.remainingMessages ?? 10;
+  const isLimitReached = user?.isLimitReached ?? false;
+  const dailyLimit = user?.limit ?? 10;
+
+  // Sync user on login
   useEffect(() => {
-    if (isInitialized && messages.length > 0) {
-      saveChatHistory(messages);
+    if (userId) {
+      syncUserMutation({ clerkId: userId }).catch(console.error);
     }
-  }, [messages, isInitialized]);
+  }, [userId, syncUserMutation]);
 
-  const loadChatHistory = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as ChatMessage[];
-        // Filter out any streaming messages from previous sessions
-        const validMessages = parsed.filter(msg => !msg.isStreaming);
-        setMessages(validMessages);
-      }
-    } catch (error) {
-      console.error('[ChatContext] Failed to load chat history:', error);
-    } finally {
+  // Load chat history from Convex
+  useEffect(() => {
+    if (chatHistory !== undefined) {
+      // Filter out any streaming messages and convert to local format
+      const validMessages = (chatHistory || [])
+        .filter((msg: ChatMessage) => !('isStreaming' in msg && msg.isStreaming))
+        .map((msg: ChatMessage) => ({
+          ...msg,
+          isStreaming: false,
+        }));
+      setMessages(validMessages);
       setIsInitialized(true);
     }
-  };
-
-  const saveChatHistory = async (msgs: ChatMessage[]) => {
-    try {
-      // Only save completed messages (not streaming ones)
-      const toSave = msgs.filter(msg => !msg.isStreaming);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    } catch (error) {
-      console.error('[ChatContext] Failed to save chat history:', error);
-    }
-  };
+  }, [chatHistory]);
 
   // Cleanup streaming interval on unmount
   useEffect(() => {
@@ -87,12 +90,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const simulateStreaming = useCallback((fullContent: string, messageId: string) => {
     let currentIndex = 0;
     
-    // Clear any existing interval
     if (streamingIntervalRef.current) {
       clearInterval(streamingIntervalRef.current);
     }
 
-    // Add initial empty streaming message
     const initialMessage: ChatMessage = {
       id: messageId,
       role: 'assistant',
@@ -102,18 +103,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     };
     setMessages(prev => [...prev, initialMessage]);
 
-    // Progressively reveal text
     streamingIntervalRef.current = setInterval(() => {
       currentIndex += 1;
       
       if (currentIndex >= fullContent.length) {
-        // Streaming complete
         if (streamingIntervalRef.current) {
           clearInterval(streamingIntervalRef.current);
           streamingIntervalRef.current = null;
         }
         
-        // Update message to final state
+        // Update local state
         setMessages(prev => 
           prev.map(msg => 
             msg.id === messageId 
@@ -121,9 +120,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               : msg
           )
         );
+        
+        // Persist to Convex
+        if (userId) {
+          addMessageMutation({
+            clerkId: userId,
+            message: {
+              id: messageId,
+              role: 'assistant',
+              content: fullContent,
+              timestamp: Date.now(),
+            },
+          }).catch(console.error);
+        }
+        
         setIsLoading(false);
       } else {
-        // Update with partial content
         const partialContent = fullContent.slice(0, currentIndex);
         setMessages(prev => 
           prev.map(msg => 
@@ -134,10 +146,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         );
       }
     }, TYPING_SPEED);
-  }, []);
+  }, [userId, addMessageMutation]);
 
   const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isLoading) return;
+    if (!content.trim() || isLoading || !userId) return;
+
+    // Check rate limit first
+    if (isLimitReached) {
+      setError('Daily message limit reached. Try again tomorrow.');
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -150,11 +168,32 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     setError(null);
 
-    // Create abort controller for this request
     abortControllerRef.current = new AbortController();
 
     try {
-      // Prepare messages for API
+      // Check and increment rate limit
+      const limitResult = await checkAndIncrementMutation({ clerkId: userId });
+      
+      if (!limitResult.allowed) {
+        setError(limitResult.message || 'Message limit reached');
+        setIsLoading(false);
+        // Remove the user message we just added
+        setMessages(prev => prev.filter(m => m.id !== userMessage.id));
+        return;
+      }
+
+      // Persist user message to Convex
+      await addMessageMutation({
+        clerkId: userId,
+        message: {
+          id: userMessage.id,
+          role: 'user',
+          content: userMessage.content,
+          timestamp: userMessage.timestamp,
+        },
+      });
+
+      // Prepare messages for API (without streaming flags)
       const apiMessages = [...messages, userMessage].map(msg => ({
         role: msg.role,
         content: msg.content,
@@ -179,7 +218,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (data.success && data.message) {
-        // Start simulated streaming
         const messageId = `assistant-${Date.now()}`;
         simulateStreaming(data.message.content, messageId);
       } else {
@@ -192,7 +230,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       
       const rawError = err instanceof Error ? err.message : 'Something went wrong';
       
-      // Check for rate limit / no response error
       if (rawError.includes('No response from AI') || rawError.includes('500')) {
         console.log('API Chat limit reached. Try again later.');
         setError('Chat limit reached. Please try again later.');
@@ -203,14 +240,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       console.error('Chat error:', err);
     }
-  }, [messages, isLoading, simulateStreaming]);
+  }, [messages, isLoading, userId, isLimitReached, simulateStreaming, checkAndIncrementMutation, addMessageMutation]);
 
   const clearChat = useCallback(async () => {
-    // Abort any ongoing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    // Clear any ongoing streaming
     if (streamingIntervalRef.current) {
       clearInterval(streamingIntervalRef.current);
       streamingIntervalRef.current = null;
@@ -219,16 +254,76 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     setIsLoading(false);
     
-    // Clear from storage
-    try {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      console.error('[ChatContext] Failed to clear chat history:', error);
+    if (userId) {
+      try {
+        await clearChatMutation({ clerkId: userId });
+      } catch (error) {
+        console.error('[ChatContext] Failed to clear chat:', error);
+      }
     }
-  }, []);
+  }, [userId, clearChatMutation]);
 
   return (
-    <ChatContext.Provider value={{ messages, isLoading, error, sendMessage, clearChat, isInitialized }}>
+    <ChatContext.Provider value={{ 
+      messages, 
+      isLoading, 
+      error, 
+      sendMessage, 
+      clearChat, 
+      isInitialized,
+      remainingMessages,
+      isLimitReached,
+      dailyLimit,
+    }}>
+      {children}
+    </ChatContext.Provider>
+  );
+}
+
+// Convex client - lazily initialized
+let convexClient: ConvexReactClient | null = null;
+
+function getConvexClient() {
+  if (!convexClient) {
+    const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+    if (!convexUrl) {
+      console.warn('EXPO_PUBLIC_CONVEX_URL is not set');
+      return null;
+    }
+    convexClient = new ConvexReactClient(convexUrl);
+  }
+  return convexClient;
+}
+
+export function ChatProvider({ children }: { children: React.ReactNode }) {
+  const client = getConvexClient();
+  
+  // If Convex is not configured, render children without Convex
+  if (!client) {
+    return <ChatProviderFallback>{children}</ChatProviderFallback>;
+  }
+  
+  return (
+    <ConvexProviderWithClerk client={client} useAuth={useAuth}>
+      <ChatProviderInner>{children}</ChatProviderInner>
+    </ConvexProviderWithClerk>
+  );
+}
+
+// Fallback provider when Convex is not available
+function ChatProviderFallback({ children }: { children: React.ReactNode }) {
+  return (
+    <ChatContext.Provider value={{
+      messages: [],
+      isLoading: false,
+      error: 'Chat service not configured',
+      sendMessage: async () => {},
+      clearChat: () => {},
+      isInitialized: true,
+      remainingMessages: 0,
+      isLimitReached: true,
+      dailyLimit: 10,
+    }}>
       {children}
     </ChatContext.Provider>
   );

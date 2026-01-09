@@ -12,6 +12,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "convex/_generated/**/*.ts",
+    "convex/_generated/**/*.js"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }
