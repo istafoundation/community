@@ -30,7 +30,17 @@ console.log(`   Version: ${version}`);
 console.log('');
 
 try {
-  // Step 1: Run the Gradle build
+  // Step 1: Run Expo Prebuild to regenerate native projects with updated version
+  console.log('🔄 Running Expo Prebuild...');
+  execSync('npx expo prebuild --clean', {
+    cwd: root,
+    stdio: 'inherit',
+    shell: true
+  });
+  console.log('✅ Prebuild completed');
+  console.log('');
+
+  // Step 2: Run the Gradle build
   console.log('📦 Running Gradle assembleRelease...');
   execSync('gradlew.bat assembleRelease', {
     cwd: path.join(root, 'android'),
@@ -38,13 +48,13 @@ try {
     shell: true
   });
 
-  // Step 2: Create builds directory if it doesn't exist
+  // Step 3: Create builds directory if it doesn't exist
   if (!fs.existsSync(buildsDir)) {
     fs.mkdirSync(buildsDir, { recursive: true });
     console.log('📁 Created builds/ directory');
   }
 
-  // Step 3: Copy and rename the APK
+  // Step 4: Copy and rename the APK
   if (fs.existsSync(apkSourceFile)) {
     fs.copyFileSync(apkSourceFile, outputFile);
     
