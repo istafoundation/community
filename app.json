@@ -40,7 +40,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "./plugins/withAndroidSigning"
     ],
     "experiments": {
       "typedRoutes": true,
