@@ -83,7 +83,6 @@ export function useVersionCheck() {
       });
       
       if (!response.ok) {
-        console.log('[VersionCheck] Failed to fetch version config');
         return;
       }
 
@@ -138,7 +137,7 @@ export function useVersionCheck() {
         );
       }
     } catch (error) {
-      console.log('[VersionCheck] Error:', error);
+      // Silently fail - version check is not critical
     }
   }, []);
 

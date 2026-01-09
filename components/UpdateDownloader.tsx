@@ -7,8 +7,17 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
-import { Paths, File } from 'expo-file-system';
+import {
+  documentDirectory,
+  cacheDirectory,
+  downloadAsync,
+  createDownloadResumable,
+  getContentUriAsync,
+  deleteAsync,
+  getInfoAsync,
+} from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 interface UpdateDownloaderProps {
@@ -22,7 +31,7 @@ export function UpdateDownloader({ visible, updateUrl, version, onClose }: Updat
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
-  const [downloadedFile, setDownloadedFile] = useState<File | null>(null);
+  const [downloadedFileUri, setDownloadedFileUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const downloadUpdate = useCallback(async () => {
@@ -37,89 +46,88 @@ export function UpdateDownloader({ visible, updateUrl, version, onClose }: Updat
 
     try {
       const fileName = `ista-community-v${version}.apk`;
-      const file = new File(Paths.cache, fileName);
+      const fileUri = `${cacheDirectory}${fileName}`;
       
       // Delete existing file if it exists
-      if (file.exists) {
-        file.delete();
+      const fileInfo = await getInfoAsync(fileUri);
+      if (fileInfo.exists) {
+        await deleteAsync(fileUri, { idempotent: true });
       }
-
-      // Fetch with progress tracking
-      const response = await fetch(updateUrl);
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-        
-        chunks.push(value);
-        received += value.length;
-        
-        if (total > 0) {
-          setProgress(Math.round((received / total) * 100));
+      // Use createDownloadResumable for progress tracking
+      const downloadResumable = createDownloadResumable(
+        updateUrl,
+        fileUri,
+        {},
+        (downloadProgress) => {
+          const percentComplete = Math.round(
+            (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100
+          );
+          setProgress(percentComplete > 0 ? percentComplete : 0);
         }
-      }
+      );
 
-      // Combine chunks and write to file
-      const blob = new Blob(chunks as BlobPart[], { type: 'application/vnd.android.package-archive' });
-      const arrayBuffer = await blob.arrayBuffer();
+      const result = await downloadResumable.downloadAsync();
       
-      file.create();
-      file.write(new Uint8Array(arrayBuffer));
-
-      setDownloadedFile(file);
-      setDownloadComplete(true);
+      if (result?.uri) {
+        setDownloadedFileUri(result.uri);
+        setDownloadComplete(true);
+        setProgress(100);
+      } else {
+        throw new Error('Download failed - no URI returned');
+      }
+      
       setDownloading(false);
     } catch (err) {
-      console.error('[UpdateDownloader] Error:', err);
-      setError('Download failed. Please try again or download from browser.');
+      console.error('[UpdateDownloader] Download error:', err);
+      setError(`Download failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setDownloading(false);
     }
   }, [updateUrl, version]);
 
   const installUpdate = useCallback(async () => {
-    if (!downloadedFile) return;
+    if (!downloadedFileUri) return;
 
     try {
+      // Get a content URI that Android can use
+      const contentUri = await getContentUriAsync(downloadedFileUri);
+      
       // Launch Android's package installer
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: downloadedFile.uri,
+        data: contentUri,
         flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
         type: 'application/vnd.android.package-archive',
       });
       
       onClose();
     } catch (err) {
+      console.error('[UpdateDownloader] Install error:', err);
+      // Fallback to opening the release page
       Alert.alert(
         'Installation Error',
-        'Could not open the installer. Please install manually from your Downloads folder.',
-        [{ text: 'OK' }]
+        'Could not open the installer. Would you like to open the download page in your browser instead?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Open Browser', 
+            onPress: () => Linking.openURL('https://github.com/istafoundation/community/releases/latest')
+          }
+        ]
       );
-      console.error('[UpdateDownloader] Install error:', err);
     }
-  }, [downloadedFile, onClose]);
+  }, [downloadedFileUri, onClose]);
+
+  const openInBrowser = useCallback(() => {
+    Linking.openURL('https://github.com/istafoundation/community/releases/latest');
+    onClose();
+  }, [onClose]);
 
   const handleClose = () => {
     if (!downloading) {
       setDownloadComplete(false);
       setProgress(0);
       setError(null);
-      setDownloadedFile(null);
+      setDownloadedFileUri(null);
       onClose();
     }
   };
