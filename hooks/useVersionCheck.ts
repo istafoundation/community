@@ -30,7 +30,7 @@ import Constants from 'expo-constants';
  */
 
 // Raw GitHub URL for version config file
-const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/istafoundation/community/main/native/app-version.json';
+const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/istafoundation/community/main/app-version.json';
 
 interface VersionConfig {
   latestVersion: string;
