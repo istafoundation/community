@@ -80,7 +80,7 @@ const getCategoryIcon = (source: string, title: string): keyof typeof Ionicons.g
   return 'newspaper';
 };
 
-export function NewsCard({ article, index = 0 }: NewsCardProps) {
+function NewsCardComponent({ article, index = 0 }: NewsCardProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const scale = useSharedValue(1);
@@ -189,6 +189,16 @@ export function NewsCard({ article, index = 0 }: NewsCardProps) {
     </AnimatedPressable>
   );
 }
+
+// Memoized export to prevent unnecessary re-renders in FlatList
+export const NewsCard = React.memo(NewsCardComponent, (prevProps, nextProps) => {
+  // Only re-render if article link/title changes (core identifying data)
+  return (
+    prevProps.article.link === nextProps.article.link &&
+    prevProps.article.title === nextProps.article.title &&
+    prevProps.index === nextProps.index
+  );
+});
 
 const styles = StyleSheet.create({
   card: {

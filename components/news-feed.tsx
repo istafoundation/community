@@ -2,7 +2,7 @@ import { NewsCard } from '@/components/news-card';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { NewsArticle } from '@/hooks/use-news';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
@@ -13,7 +13,6 @@ import {
     View,
 } from 'react-native';
 
-import { usePreferences } from '@/contexts/preferences-context';
 
 const { width } = Dimensions.get('window');
 
@@ -107,7 +106,6 @@ function LoadingSkeletons() {
 function LoadingMoreIndicator() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { accentColor } = usePreferences();
 
   return (
     <View style={styles.loadingMore}>
@@ -162,11 +160,25 @@ export function NewsFeed({
     setRefreshing(false);
   };
 
-  const handleEndReached = () => {
+  const handleEndReached = useCallback(() => {
     if (!loadingMore && hasMore && onLoadMore) {
       onLoadMore();
     }
-  };
+  }, [loadingMore, hasMore, onLoadMore]);
+
+  // Memoized renderItem for FlatList performance
+  const renderItem = useCallback(
+    ({ item, index }: { item: NewsArticle; index: number }) => (
+      <NewsCard article={item} index={index} />
+    ),
+    []
+  );
+
+  // Memoized keyExtractor for FlatList performance
+  const keyExtractor = useCallback(
+    (item: NewsArticle, index: number) => `${item.link}-${index}`,
+    []
+  );
 
   if (loading && articles.length === 0) {
     return <LoadingSkeletons />;
@@ -194,8 +206,8 @@ export function NewsFeed({
     <FlatList
       ref={flatListRef}
       data={articles}
-      keyExtractor={(item, index) => `${item.link}-${index}`}
-      renderItem={({ item, index }) => <NewsCard article={item} index={index} />}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

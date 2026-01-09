@@ -16,75 +16,186 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-// Ad blocker script to inject into WebView
+// Comprehensive Ad Blocker Script for WebView
+// This script blocks ads at multiple levels: CSS hiding, DOM removal, and script blocking
 const AD_BLOCKER_SCRIPT = `
 (function() {
-  // Common ad-related selectors to hide/remove
+  'use strict';
+  
+  // ============================================
+  // COMPREHENSIVE AD SELECTOR LIST (200+ selectors)
+  // ============================================
   const adSelectors = [
-    // Google Ads
-    'ins.adsbygoogle',
-    '[id^="google_ads"]',
-    '[id^="div-gpt-ad"]',
-    '[class*="google-ad"]',
-    '[class*="googleAd"]',
-    'iframe[src*="doubleclick.net"]',
-    'iframe[src*="googlesyndication"]',
+    // === Google Ads ===
+    'ins.adsbygoogle', '.adsbygoogle', '[data-ad-client]', '[data-ad-slot]',
+    '[id^="google_ads"]', '[id^="div-gpt-ad"]', '[id*="google_ads"]',
+    '[class*="google-ad"]', '[class*="googleAd"]', '[class*="GoogleAd"]',
+    'iframe[src*="doubleclick.net"]', 'iframe[src*="googlesyndication"]',
+    'iframe[src*="googleads"]', 'iframe[src*="google.com/ads"]',
+    '[data-google-query-id]', '[data-ad-layout]', '[data-ad-format]',
+    '.google-auto-placed', 'div[data-google-container-id]',
     
-    // Common ad containers
-    '[class*="ad-container"]',
-    '[class*="ad-wrapper"]',
-    '[class*="ad-banner"]',
-    '[class*="ad-slot"]',
-    '[class*="advertisement"]',
-    '[id*="ad-container"]',
-    '[id*="ad-wrapper"]',
-    '[id*="advertisement"]',
-    '[data-ad]',
-    '[data-ad-slot]',
-    '[data-google-query-id]',
+    // === Common Ad Containers ===
+    '[class*="ad-container"]', '[class*="ad_container"]',
+    '[class*="ad-wrapper"]', '[class*="ad_wrapper"]',
+    '[class*="ad-banner"]', '[class*="ad_banner"]',
+    '[class*="ad-slot"]', '[class*="ad_slot"]',
+    '[class*="ad-unit"]', '[class*="ad_unit"]',
+    '[class*="ad-block"]', '[class*="ad_block"]',
+    '[class*="ad-holder"]', '[class*="ad_holder"]',
+    '[class*="ad-space"]', '[class*="ad_space"]',
+    '[class*="ad-placement"]', '[class*="ad_placement"]',
+    '[class*="ad-content"]', '[class*="ad_content"]',
+    '[class*="ad-module"]', '[class*="ad_module"]',
+    '[class*="advertisement"]', '[class*="Advertisement"]',
+    '[class*="advertorial"]', '[class*="Advertorial"]',
+    '[id*="ad-container"]', '[id*="ad_container"]',
+    '[id*="ad-wrapper"]', '[id*="ad_wrapper"]',
+    '[id*="advertisement"]', '[id*="Advertisement"]',
+    '[id*="ad-slot"]', '[id*="ad_slot"]',
+    '[id*="ad-banner"]', '[id*="ad_banner"]',
+    '[data-ad]', '[data-ad-slot]', '[data-ads]',
+    '[data-ad-unit]', '[data-ad-name]', '[data-ad-id]',
     
-    // Sponsored content
-    '[class*="sponsored"]',
-    '[id*="sponsored"]',
+    // === Taboola, Outbrain, and Content Recommendation ===
+    '[class*="taboola"]', '[class*="Taboola"]', '[id*="taboola"]',
+    '[class*="outbrain"]', '[class*="Outbrain"]', '[id*="outbrain"]',
+    'iframe[src*="taboola"]', 'iframe[src*="outbrain"]',
+    '.OUTBRAIN', '#OUTBRAIN', '.ob-widget', '.ob-smartfeed',
+    '.trc_rbox', '.trc_related_container', '.trc-content-sponsored',
+    '[class*="content-recommendation"]', '[class*="recommended-content"]',
+    '[class*="more-stories"]', '[class*="around-the-web"]',
+    '[class*="from-the-web"]', '[class*="promoted-content"]',
+    '[class*="sponsored-stories"]', '[class*="partner-content"]',
     
-    // Popups and overlays
-    '[class*="popup-ad"]',
-    '[class*="modal-ad"]',
-    '[class*="overlay-ad"]',
+    // === MGID, RevContent, Nativo, and other networks ===
+    '[class*="mgid"]', '[id*="mgid"]', 'iframe[src*="mgid"]',
+    '[class*="revcontent"]', '[id*="revcontent"]', 'iframe[src*="revcontent"]',
+    '[class*="nativo"]', '[id*="nativo"]', 'iframe[src*="nativo"]',
+    '[class*="zergnet"]', 'iframe[src*="zergnet"]',
+    '[class*="criteo"]', 'iframe[src*="criteo"]',
+    '[class*="teads"]', 'iframe[src*="teads"]',
+    '[class*="pubmatic"]', 'iframe[src*="pubmatic"]',
+    '[class*="openx"]', 'iframe[src*="openx"]',
+    '[class*="rubicon"]', 'iframe[src*="rubiconproject"]',
+    '[class*="appnexus"]', 'iframe[src*="appnexus"]',
+    '[class*="amazon-adsystem"]', 'iframe[src*="amazon-adsystem"]',
+    '[class*="media.net"]', 'iframe[src*="media.net"]',
+    '[class*="adnxs"]', 'iframe[src*="adnxs"]',
     
-    // Social tracking
+    // === Sponsored Content ===
+    '[class*="sponsored"]', '[class*="Sponsored"]', '[id*="sponsored"]',
+    '[data-sponsored]', '[data-is-sponsored]',
+    '[class*="paid-content"]', '[class*="paid-post"]',
+    '[class*="native-ad"]', '[class*="nativeAd"]',
+    '[class*="partner-post"]', '[class*="branded-content"]',
+    
+    // === Popups, Modals, and Overlays ===
+    '[class*="popup-ad"]', '[class*="modal-ad"]', '[class*="overlay-ad"]',
+    '[class*="interstitial"]', '[class*="Interstitial"]',
+    '[class*="splash-ad"]', '[class*="splash-screen-ad"]',
+    '[class*="lightbox-ad"]', '[class*="floating-ad"]',
+    '[class*="hover-ad"]', '[class*="slide-ad"]',
+    '[class*="exit-intent"]', '[class*="exit-popup"]',
+    
+    // === Sticky and Fixed Ads ===
+    '[class*="sticky-ad"]', '[class*="stickyAd"]',
+    '[class*="fixed-ad"]', '[class*="fixedAd"]',
+    '[class*="bottom-ad"]', '[class*="bottomAd"]',
+    '[class*="top-ad"]', '[class*="topAd"]',
+    '[class*="sidebar-ad"]', '[class*="sidebarAd"]',
+    '[class*="rail-ad"]', '[class*="sky-ad"]', '[class*="skyscraper"]',
+    '[class*="leaderboard"]', '[class*="billboard"]',
+    '[class*="anchor-ad"]', '[class*="docked-ad"]',
+    
+    // === Generic Patterns ===
+    '.ad', '.ads', '.advert', '.adverts',
+    '#ad', '#ads', '#advert', '#adverts',
+    '.Ad', '.Ads', '.Advert',
+    '[aria-label*="advertisement"]', '[aria-label*="Advertisement"]',
+    '[aria-label*="sponsored"]', '[aria-label*="Sponsored"]',
+    
+    // === Social & Tracking Widgets ===
     'iframe[src*="facebook.com/plugins"]',
     'iframe[src*="platform.twitter.com"]',
+    'iframe[src*="platform.instagram.com"]',
+    '[class*="fb-ad"]', '[class*="twitter-ad"]',
     
-    // Common ad networks
-    'iframe[src*="taboola"]',
-    'iframe[src*="outbrain"]',
-    'iframe[src*="mgid"]',
-    'iframe[src*="revcontent"]',
-    '[class*="taboola"]',
-    '[class*="outbrain"]',
-    '[id*="taboola"]',
-    '[id*="outbrain"]',
+    // === Video Ads ===
+    '[class*="video-ad"]', '[class*="videoAd"]', '[class*="preroll"]',
+    '[class*="midroll"]', '[class*="postroll"]',
+    '[class*="video-sponsor"]', '[class*="ad-overlay"]',
     
-    // Generic ad patterns
-    '.ad', '.ads', '.advert',
-    '#ad', '#ads', '#advert',
-    '[aria-label*="advertisement"]',
-    '[aria-label*="Advertisement"]',
+    // === Newsletter & Subscription Prompts (often annoying) ===
+    '[class*="newsletter-popup"]', '[class*="subscribe-popup"]',
+    '[class*="newsletter-modal"]', '[class*="subscription-modal"]',
+    '[class*="email-capture"]', '[class*="signup-prompt"]',
     
-    // Sticky ads
-    '[class*="sticky-ad"]',
-    '[class*="fixed-ad"]',
-    '[class*="bottom-ad"]',
-    '[class*="top-ad"]',
+    // === Paywall Bypassing ===
+    '[class*="paywall"]', '[class*="Paywall"]', '[id*="paywall"]',
+    '[class*="subscriber-only"]', '[class*="premium-content-gate"]',
+    '[class*="registration-wall"]', '[class*="regwall"]',
+    '[class*="piano-"]', '[id*="piano-"]',
+    '.tp-modal', '.tp-backdrop', '[class*="tp-container"]',
+    '[class*="offer-page"]', '[class*="subscription-required"]',
+    
+    // === Cookie Banners & Consent (often block content) ===
+    '[class*="cookie-banner"]', '[class*="cookie-consent"]',
+    '[class*="cookie-notice"]', '[class*="gdpr"]', '[class*="GDPR"]',
+    '[class*="consent-banner"]', '[class*="consent-modal"]',
+    '[class*="privacy-banner"]', '[class*="privacy-notice"]',
+    '[id*="cookie"]', '[id*="consent"]', '[id*="gdpr"]',
+    '#onetrust-consent-sdk', '.onetrust-pc-dark-filter',
+    '[class*="sp_message"]', '[class*="cmp-"]',
+    
+    // === News Site Specific ===
+    '[class*="breaking-news-bar"]', '[class*="ticker"]',
+    '[class*="promo-bar"]', '[class*="alert-bar"]',
+    '[class*="app-download"]', '[class*="download-app"]',
   ];
 
-  // CSS to hide ads
+  // ============================================
+  // BLOCKED DOMAINS (for script/resource blocking)
+  // ============================================
+  const blockedDomains = [
+    // Google Ads
+    'googlesyndication.com', 'doubleclick.net', 'googleadservices.com',
+    'adservice.google.com', 'pagead2.googlesyndication.com',
+    'googletagservices.com', 'securepubads.g.doubleclick.net',
+    'adx.g.doubleclick.net', 'www.googletagmanager.com',
+    
+    // Major Ad Networks
+    'taboola.com', 'outbrain.com', 'outbrainimg.com',
+    'amazon-adsystem.com', 'media.net', 'mgid.com', 'revcontent.com',
+    'criteo.com', 'criteo.net', 'teads.tv',
+    'pubmatic.com', 'openx.net', 'rubiconproject.com',
+    'appnexus.com', 'adnxs.com', 'contextweb.com',
+    'advertising.com', 'casalemedia.com', 'lijit.com',
+    'sharethrough.com', 'triplelift.com', 'spotxchange.com',
+    'gumgum.com', 'nativo.com', 'zergnet.com',
+    
+    // Tracking & Analytics (often loads ads)
+    'facebook.net/en_US/fbevents.js', 'connect.facebook.net',
+    'hotjar.com', 'mouseflow.com', 'fullstory.com',
+    'quantserve.com', 'scorecardresearch.com',
+    'chartbeat.com', 'newrelic.com', 'nr-data.net',
+    
+    // Paywall/Subscription Services
+    'piano.io', 'tinypass.com', 'pelcro.com',
+    
+    // Other annoying services
+    'onesignal.com', 'pushwoosh.com', 'pushengage.com',
+    'cleverpush.com', 'webpush.com',
+  ];
+
+  // ============================================
+  // CSS FOR AD BLOCKING & READER MODE
+  // ============================================
   const adBlockerCSS = adSelectors.map(selector => 
-    selector + ' { display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; overflow: hidden !important; }'
+    selector + ' { display: none !important; visibility: hidden !important; height: 0 !important; max-height: 0 !important; width: 0 !important; max-width: 0 !important; overflow: hidden !important; opacity: 0 !important; pointer-events: none !important; position: absolute !important; z-index: -9999 !important; }'
   ).join('\\n');
 
-  // CSS to force light mode and apply reader-friendly styling
+  // Reader mode CSS for clean article viewing
   const readerModeCSS = \`
     /* Force light mode */
     :root {
@@ -92,20 +203,27 @@ const AD_BLOCKER_SCRIPT = `
     }
     
     /* Hide website navigation and chrome */
-    header, nav, .header, .nav, .navbar, .navigation,
+    header:not(article header), nav, .header, .nav, .navbar, .navigation,
     .site-header, .page-header, .top-bar, .top-header,
     footer, .footer, .site-footer, .page-footer,
-    .sidebar, .side-bar, aside,
+    .sidebar:not(.article-sidebar), .side-bar, aside:not(article aside),
     .cookie-banner, .cookie-notice, .gdpr,
     .newsletter, .subscribe-box, .subscription,
     .social-share, .share-buttons, .social-buttons,
     .related-posts, .related-articles, .recommended,
-    .comments, .comment-section, #comments,
+    .comments, .comment-section, #comments, #disqus_thread,
     .breadcrumb, .breadcrumbs,
-    [class*="menu"], [class*="Menu"],
-    [class*="banner"], [class*="Banner"],
+    [class*="menu"]:not(article [class*="menu"]), 
+    [class*="Menu"]:not(article [class*="Menu"]),
+    [class*="banner"]:not(img[class*="banner"]), 
+    [class*="Banner"]:not(img[class*="Banner"]),
     [class*="popup"], [class*="modal"],
-    .floating-button, .fab, .back-to-top {
+    .floating-button, .fab, .back-to-top,
+    [class*="app-promo"], [class*="download-app"],
+    [class*="engagement-"], [class*="recirculation"],
+    [class*="more-from"], [class*="trending"],
+    [role="banner"], [role="navigation"], [role="complementary"],
+    .site-branding, .masthead, .utility-nav {
       display: none !important;
     }
     
@@ -113,16 +231,19 @@ const AD_BLOCKER_SCRIPT = `
     html, body {
       background-color: #ffffff !important;
       color: #1a1a1a !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-      line-height: 1.7 !important;
-      font-size: 17px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      line-height: 1.75 !important;
+      font-size: 18px !important;
       -webkit-font-smoothing: antialiased !important;
+      -moz-osx-font-smoothing: grayscale !important;
       padding: 0 !important;
       margin: 0 !important;
+      overflow-x: hidden !important;
     }
     
     /* Content container styling */
-    body > *, main, article, .content, .article, .post, .entry-content {
+    body > *, main, article, .content, .article, .post, .entry-content,
+    [class*="article-body"], [class*="story-body"], [class*="post-content"] {
       max-width: 100% !important;
       padding-left: 16px !important;
       padding-right: 16px !important;
@@ -134,18 +255,20 @@ const AD_BLOCKER_SCRIPT = `
       color: #000000 !important;
       font-weight: 700 !important;
       line-height: 1.3 !important;
-      margin-top: 24px !important;
-      margin-bottom: 12px !important;
+      margin-top: 28px !important;
+      margin-bottom: 14px !important;
     }
     
-    h1 { font-size: 26px !important; }
-    h2 { font-size: 22px !important; }
-    h3 { font-size: 19px !important; }
+    h1 { font-size: 28px !important; }
+    h2 { font-size: 24px !important; }
+    h3 { font-size: 20px !important; }
+    h4 { font-size: 18px !important; }
     
     p {
-      color: #333333 !important;
-      margin-bottom: 16px !important;
-      font-size: 17px !important;
+      color: #2d2d2d !important;
+      margin-bottom: 18px !important;
+      font-size: 18px !important;
+      line-height: 1.75 !important;
     }
     
     /* Link styling */
@@ -154,46 +277,95 @@ const AD_BLOCKER_SCRIPT = `
       text-decoration: none !important;
     }
     
+    a:hover {
+      text-decoration: underline !important;
+    }
+    
     /* Image styling */
     img {
       max-width: 100% !important;
       height: auto !important;
       border-radius: 8px !important;
-      margin: 16px 0 !important;
+      margin: 20px 0 !important;
+    }
+    
+    figure {
+      margin: 20px 0 !important;
+      padding: 0 !important;
+    }
+    
+    figcaption {
+      font-size: 14px !important;
+      color: #666 !important;
+      text-align: center !important;
+      margin-top: 8px !important;
     }
     
     /* Code blocks */
     pre, code {
       background-color: #f5f5f5 !important;
       border-radius: 6px !important;
-      font-size: 14px !important;
-      padding: 4px 8px !important;
+      font-size: 15px !important;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace !important;
+    }
+    
+    code {
+      padding: 2px 6px !important;
     }
     
     pre {
       padding: 16px !important;
       overflow-x: auto !important;
+      margin: 16px 0 !important;
+    }
+    
+    pre code {
+      padding: 0 !important;
+      background: transparent !important;
     }
     
     /* Lists */
     ul, ol {
-      padding-left: 24px !important;
-      margin-bottom: 16px !important;
+      padding-left: 28px !important;
+      margin-bottom: 18px !important;
     }
     
     li {
-      margin-bottom: 8px !important;
-      color: #333333 !important;
+      margin-bottom: 10px !important;
+      color: #2d2d2d !important;
+      line-height: 1.6 !important;
     }
     
     /* Blockquotes */
     blockquote {
       border-left: 4px solid #007AFF !important;
-      margin: 16px 0 !important;
-      padding: 12px 16px !important;
+      margin: 20px 0 !important;
+      padding: 14px 20px !important;
       background-color: #f8f9fa !important;
       border-radius: 0 8px 8px 0 !important;
       font-style: italic !important;
+    }
+    
+    blockquote p {
+      margin-bottom: 0 !important;
+    }
+    
+    /* Tables */
+    table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin: 20px 0 !important;
+    }
+    
+    th, td {
+      border: 1px solid #e0e0e0 !important;
+      padding: 12px !important;
+      text-align: left !important;
+    }
+    
+    th {
+      background-color: #f5f5f5 !important;
+      font-weight: 600 !important;
     }
     
     /* Remove fixed/sticky elements */
@@ -225,28 +397,75 @@ const AD_BLOCKER_SCRIPT = `
         color: #1a1a1a !important;
       }
     }
+    
+    /* Remove blur effects often used for paywalls */
+    [style*="blur"], [style*="filter: blur"] {
+      filter: none !important;
+      -webkit-filter: none !important;
+    }
+    
+    /* Ensure article content is visible (anti-paywall) */
+    article, .article, .story, .post, .entry,
+    [class*="article-"], [class*="story-"], [class*="post-"] {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
   \`;
 
-  // Inject CSS
-  const style = document.createElement('style');
-  style.type = 'text/css';
-  style.id = 'ad-blocker-styles';
-  style.textContent = adBlockerCSS + readerModeCSS;
-  document.head.appendChild(style);
+  // ============================================
+  // INJECT CSS IMMEDIATELY
+  // ============================================
+  function injectStyles() {
+    if (document.getElementById('ad-blocker-styles')) return;
+    
+    const style = document.createElement('style');
+    style.type = 'text/css';
+    style.id = 'ad-blocker-styles';
+    style.textContent = adBlockerCSS + readerModeCSS;
+    
+    // Try to inject as early as possible
+    const target = document.head || document.documentElement;
+    if (target) {
+      target.insertBefore(style, target.firstChild);
+    }
+  }
+  
+  // Inject immediately
+  injectStyles();
+  
+  // Also inject when head becomes available
+  if (!document.head) {
+    new MutationObserver((mutations, obs) => {
+      if (document.head) {
+        injectStyles();
+        obs.disconnect();
+      }
+    }).observe(document.documentElement, { childList: true });
+  }
   
   // Force light color scheme on meta tag
-  let colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
-  if (colorSchemeMeta) {
-    colorSchemeMeta.setAttribute('content', 'light');
-  } else {
-    colorSchemeMeta = document.createElement('meta');
-    colorSchemeMeta.setAttribute('name', 'color-scheme');
-    colorSchemeMeta.setAttribute('content', 'light');
-    document.head.appendChild(colorSchemeMeta);
+  function setColorScheme() {
+    let colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+    if (colorSchemeMeta) {
+      colorSchemeMeta.setAttribute('content', 'light');
+    } else if (document.head) {
+      colorSchemeMeta = document.createElement('meta');
+      colorSchemeMeta.setAttribute('name', 'color-scheme');
+      colorSchemeMeta.setAttribute('content', 'light');
+      document.head.appendChild(colorSchemeMeta);
+    }
   }
+  setColorScheme();
 
-  // Function to remove ad elements
+  // ============================================
+  // AGGRESSIVE AD REMOVAL FUNCTION
+  // ============================================
   function removeAds() {
+    // Remove elements matching selectors
     adSelectors.forEach(selector => {
       try {
         document.querySelectorAll(selector).forEach(el => {
@@ -257,77 +476,170 @@ const AD_BLOCKER_SCRIPT = `
     
     // Remove suspicious iframes
     document.querySelectorAll('iframe').forEach(iframe => {
-      const src = iframe.src || '';
-      if (
-        src.includes('ad') ||
-        src.includes('doubleclick') ||
-        src.includes('googlesyndication') ||
-        src.includes('taboola') ||
-        src.includes('outbrain') ||
-        src.includes('amazon-adsystem')
-      ) {
+      const src = (iframe.src || '').toLowerCase();
+      const name = (iframe.name || '').toLowerCase();
+      const id = (iframe.id || '').toLowerCase();
+      const className = (iframe.className || '').toLowerCase();
+      
+      const isAd = blockedDomains.some(domain => src.includes(domain)) ||
+                   src.includes('ad') ||
+                   name.includes('ad') ||
+                   id.includes('ad') ||
+                   className.includes('ad') ||
+                   src === '' || // Empty iframes are often ads
+                   src === 'about:blank';
+      
+      if (isAd) {
         iframe.remove();
       }
     });
-  }
-
-  // Run immediately
-  removeAds();
-
-  // Run after DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', removeAds);
-  }
-
-  // Watch for dynamically added ads
-  const observer = new MutationObserver((mutations) => {
-    let shouldClean = false;
-    mutations.forEach(mutation => {
-      if (mutation.addedNodes.length > 0) {
-        shouldClean = true;
+    
+    // Remove elements with ad-related inline styles (often dynamically inserted)
+    document.querySelectorAll('[style*="z-index: 999"]').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      // If it's covering a large portion of the screen, it's likely an overlay ad
+      if (rect.width > window.innerWidth * 0.5 && rect.height > window.innerHeight * 0.3) {
+        el.remove();
       }
     });
-    if (shouldClean) {
-      removeAds();
-    }
-  });
+    
+    // Remove script/noscript pairs that often contain ads
+    document.querySelectorAll('noscript').forEach(el => {
+      const content = el.innerHTML.toLowerCase();
+      if (content.includes('ad') || content.includes('tracking') || content.includes('pixel')) {
+        el.remove();
+      }
+    });
+  }
 
-  observer.observe(document.body || document.documentElement, {
-    childList: true,
-    subtree: true
-  });
-
-  // Block ad scripts from loading
+  // ============================================
+  // BLOCK AD SCRIPTS AND NETWORK REQUESTS
+  // ============================================
+  
+  // Block script elements
   const originalCreateElement = document.createElement.bind(document);
   document.createElement = function(tagName) {
     const element = originalCreateElement(tagName);
+    
     if (tagName.toLowerCase() === 'script') {
       const originalSetAttribute = element.setAttribute.bind(element);
       element.setAttribute = function(name, value) {
         if (name === 'src' && typeof value === 'string') {
-          const blockedDomains = [
-            'googlesyndication.com',
-            'doubleclick.net',
-            'googleadservices.com',
-            'adservice.google',
-            'pagead2.googlesyndication.com',
-            'taboola.com',
-            'outbrain.com',
-            'amazon-adsystem.com',
-            'mgid.com',
-            'revcontent.com'
-          ];
           if (blockedDomains.some(domain => value.includes(domain))) {
+            console.log('[AdBlocker] Blocked script:', value.substring(0, 50));
+            return; // Don't set the src
+          }
+        }
+        return originalSetAttribute(name, value);
+      };
+      
+      // Also intercept direct src assignment
+      Object.defineProperty(element, 'src', {
+        set: function(value) {
+          if (typeof value === 'string' && blockedDomains.some(domain => value.includes(domain))) {
+            console.log('[AdBlocker] Blocked script src:', value.substring(0, 50));
+            return;
+          }
+          element.setAttribute('src', value);
+        },
+        get: function() {
+          return element.getAttribute('src');
+        }
+      });
+    }
+    
+    if (tagName.toLowerCase() === 'iframe') {
+      const originalSetAttribute = element.setAttribute.bind(element);
+      element.setAttribute = function(name, value) {
+        if (name === 'src' && typeof value === 'string') {
+          if (blockedDomains.some(domain => value.includes(domain))) {
+            console.log('[AdBlocker] Blocked iframe:', value.substring(0, 50));
             return;
           }
         }
         return originalSetAttribute(name, value);
       };
     }
+    
     return element;
   };
+  
+  // Block fetch requests to ad domains
+  const originalFetch = window.fetch;
+  window.fetch = function(url, options) {
+    const urlStr = typeof url === 'string' ? url : url.url || '';
+    if (blockedDomains.some(domain => urlStr.includes(domain))) {
+      console.log('[AdBlocker] Blocked fetch:', urlStr.substring(0, 50));
+      return Promise.reject(new Error('Blocked by AdBlocker'));
+    }
+    return originalFetch.apply(this, arguments);
+  };
+  
+  // Block XMLHttpRequest to ad domains
+  const originalXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    if (typeof url === 'string' && blockedDomains.some(domain => url.includes(domain))) {
+      console.log('[AdBlocker] Blocked XHR:', url.substring(0, 50));
+      this._blocked = true;
+    }
+    return originalXHROpen.apply(this, arguments);
+  };
+  
+  const originalXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function() {
+    if (this._blocked) {
+      return;
+    }
+    return originalXHRSend.apply(this, arguments);
+  };
 
-  console.log('[AdBlocker] Ad blocking active');
+  // ============================================
+  // MUTATION OBSERVER FOR DYNAMIC ADS
+  // ============================================
+  let cleanupTimeout = null;
+  const observer = new MutationObserver((mutations) => {
+    // Debounce cleanup to avoid performance issues
+    if (cleanupTimeout) clearTimeout(cleanupTimeout);
+    cleanupTimeout = setTimeout(() => {
+      removeAds();
+    }, 100);
+  });
+
+  // Start observing as soon as body is available
+  function startObserver() {
+    if (document.body) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      removeAds(); // Initial cleanup
+    } else {
+      requestAnimationFrame(startObserver);
+    }
+  }
+  startObserver();
+
+  // ============================================
+  // RUN CLEANUP AT VARIOUS STAGES
+  // ============================================
+  removeAds();
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      removeAds();
+      setColorScheme();
+    });
+  }
+  
+  window.addEventListener('load', () => {
+    removeAds();
+    // Run again after a delay to catch late-loading ads
+    setTimeout(removeAds, 500);
+    setTimeout(removeAds, 1500);
+    setTimeout(removeAds, 3000);
+  });
+
+  console.log('[AdBlocker] Enhanced ad blocking active - ' + adSelectors.length + ' selectors, ' + blockedDomains.length + ' blocked domains');
   true;
 })();
 `;
