@@ -93,24 +93,78 @@ export function UpdateDownloader({ visible, updateUrl, version, onClose }: Updat
 
     try {
       console.log('[UpdateDownloader] Getting content URI for:', downloadedFileUri);
-      // Get a content URI that Android can use
       const contentUri = await getContentUriAsync(downloadedFileUri);
       console.log('[UpdateDownloader] Content URI:', contentUri);
       
-      // Launch Android's package installer
-      // Flags: FLAG_GRANT_READ_URI_PERMISSION (1) | FLAG_ACTIVITY_NEW_TASK (0x10000000)
-      console.log('[UpdateDownloader] Starting package installer activity...');
-      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: contentUri,
-        flags: 1 | 0x10000000, // FLAG_GRANT_READ_URI_PERMISSION | FLAG_ACTIVITY_NEW_TASK
-        type: 'application/vnd.android.package-archive',
-      });
-      console.log('[UpdateDownloader] Install intent launched successfully');
+      // Try using Linking.openURL first - this is more reliable on modern Android
+      // The content URI with the proper MIME type should trigger the package installer
+      console.log('[UpdateDownloader] Attempting to open APK via Linking...');
       
-      onClose();
+      // Try ACTION_INSTALL_PACKAGE intent first
+      try {
+        await IntentLauncher.startActivityAsync('android.intent.action.INSTALL_PACKAGE', {
+          data: contentUri,
+          flags: 1 | 0x10000000, // FLAG_GRANT_READ_URI_PERMISSION | FLAG_ACTIVITY_NEW_TASK
+        });
+        console.log('[UpdateDownloader] INSTALL_PACKAGE intent launched successfully');
+        onClose();
+        return;
+      } catch (installErr) {
+        console.log('[UpdateDownloader] INSTALL_PACKAGE failed, trying VIEW intent:', installErr);
+      }
+
+      // Fallback to ACTION_VIEW with package-archive MIME type
+      try {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1 | 0x10000000, // FLAG_GRANT_READ_URI_PERMISSION | FLAG_ACTIVITY_NEW_TASK
+          type: 'application/vnd.android.package-archive',
+        });
+        console.log('[UpdateDownloader] VIEW intent launched successfully');
+        onClose();
+        return;
+      } catch (viewErr) {
+        console.log('[UpdateDownloader] VIEW intent also failed:', viewErr);
+      }
+
+      // Final fallback - try to open the file directly via Linking
+      // Some Android versions support this
+      try {
+        const canOpen = await Linking.canOpenURL(contentUri);
+        console.log('[UpdateDownloader] Can open content URI:', canOpen);
+        if (canOpen) {
+          await Linking.openURL(contentUri);
+          onClose();
+          return;
+        }
+      } catch (linkErr) {
+        console.log('[UpdateDownloader] Linking also failed:', linkErr);
+      }
+
+      // If all methods fail, show permission help dialog
+      Alert.alert(
+        'Installation Permission Required',
+        'To install updates, please enable "Install unknown apps" for ISTA Community in your device settings.\n\nGo to: Settings → Apps → ISTA Community → Install unknown apps → Allow',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Open Settings', 
+            onPress: async () => {
+              try {
+                // Open app settings where user can grant the permission
+                await IntentLauncher.startActivityAsync('android.settings.MANAGE_UNKNOWN_APP_SOURCES', {
+                  data: 'package:com.istacommunity.mobile',
+                });
+              } catch {
+                // Fallback to general app settings
+                Linking.openSettings();
+              }
+            }
+          }
+        ]
+      );
     } catch (err) {
       console.error('[UpdateDownloader] Install error:', err);
-      // Fallback to opening the release page
       Alert.alert(
         'Installation Error',
         'Could not open the installer. Would you like to open the download page in your browser instead?',
