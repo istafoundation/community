@@ -9,7 +9,11 @@
  */
 
 import type * as chat from "../chat.js";
+import type * as conversations from "../conversations.js";
+import type * as directMessages from "../directMessages.js";
 import type * as events from "../events.js";
+import type * as friendRequests from "../friendRequests.js";
+import type * as userProfiles from "../userProfiles.js";
 import type * as users from "../users.js";
 
 import type {
@@ -20,7 +24,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   chat: typeof chat;
+  conversations: typeof conversations;
+  directMessages: typeof directMessages;
   events: typeof events;
+  friendRequests: typeof friendRequests;
+  userProfiles: typeof userProfiles;
   users: typeof users;
 }>;
 

@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 
 import { CategoryProvider } from '@/contexts/category-context';
 import { ChatProvider } from '@/contexts/chat-context';
+import { DirectChatProvider } from '@/contexts/direct-chat-context';
 import { PreferencesProvider, usePreferences } from '@/contexts/preferences-context';
 import { useVersionCheck } from '@/hooks/useVersionCheck';
 import { UpdateDownloader } from '@/components/UpdateDownloader';
@@ -51,6 +52,21 @@ function RootLayoutNav() {
             animation: 'slide_from_bottom',
           }} 
         />
+        <Stack.Screen 
+          name="conversation" 
+          options={{ 
+            headerShown: false,
+            animation: 'slide_from_right',
+          }} 
+        />
+        <Stack.Screen 
+          name="friend-request" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }} 
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       
@@ -74,7 +90,9 @@ export default function RootLayout() {
         <PreferencesProvider>
           <CategoryProvider>
             <ChatProvider>
-              <RootLayoutNav />
+              <DirectChatProvider>
+                <RootLayoutNav />
+              </DirectChatProvider>
             </ChatProvider>
           </CategoryProvider>
         </PreferencesProvider>

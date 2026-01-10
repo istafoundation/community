@@ -3,8 +3,10 @@ import { TopicChips } from '@/components/topic-chips';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNews, type TopicType } from '@/hooks/use-news';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    Pressable,
     StatusBar,
     StyleSheet,
     Text,
@@ -43,21 +45,15 @@ export default function HomeScreen() {
           />
           <Text style={[styles.logo, isDark && styles.logoDark]}>ISTA Community</Text>
         </View>
-        <View style={[
-          styles.articleCount, 
-          isDark && styles.articleCountDark,
-          { backgroundColor: '#007AFF15' },
-          isDark && { backgroundColor: '#007AFF30' }
-        ]}>
-          <Text style={[
-            styles.countText, 
-            isDark && styles.countTextDark,
-            { color: '#007AFF' },
-            isDark && { color: '#4DA3FF' }
-          ]}>
-            {articles.length} articles
-          </Text>
-        </View>
+        <Pressable
+          style={[
+            styles.searchButton, 
+            isDark && styles.searchButtonDark,
+          ]}
+          onPress={() => router.push('/(tabs)/explore')}
+        >
+          <Ionicons name="search" size={20} color="#007AFF" />
+        </Pressable>
       </View>
 
       {/* Topic Chips */}
@@ -109,21 +105,16 @@ const styles = StyleSheet.create({
   logoDark: {
     color: '#fff',
   },
-  articleCount: {
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#007AFF15',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  articleCountDark: {
+  searchButtonDark: {
     backgroundColor: '#007AFF30',
   },
-  countText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  countTextDark: {
-    color: '#4DA3FF',
-  },
 });
+
