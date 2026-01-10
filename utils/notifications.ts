@@ -107,6 +107,8 @@ export async function sendPushNotification(
     title,
     body,
     data: data || {},
+    priority: "high",
+    channelId: "chat",
   };
 
   try {

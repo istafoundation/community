@@ -174,7 +174,9 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
       });
 
       // Register for push notifications
+      console.log("[DirectChat] Registering for push notifications...");
       const token = await registerForPushNotificationsAsync();
+      console.log("[DirectChat] Push token result:", token ? "Success" : "Failed");
       if (token) {
         await updatePushTokenMutation({ clerkId: userId, pushToken: token });
       }
@@ -342,12 +344,16 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
             ? "🔒 New encrypted message" 
             : (content.length > 100 ? content.substring(0, 100) + "..." : content);
           
-          await sendPushNotification(
+          console.log("[DirectChat] Sending push notification to:", result.recipientPushToken.substring(0, 20) + "...");
+          const sent = await sendPushNotification(
             result.recipientPushToken,
             senderName,
             pushBody,
             { conversationId: currentConversationId }
           );
+          console.log("[DirectChat] Push notification sent:", sent);
+        } else if (result.success && !result.recipientPushToken) {
+          console.log("[DirectChat] No recipient push token available");
         }
 
         return result.success ?? false;
