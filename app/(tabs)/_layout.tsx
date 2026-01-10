@@ -3,12 +3,9 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-// import { usePreferences } from '@/contexts/preferences-context'; // removed
-
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  // const { accentColor } = usePreferences(); // removed
 
   return (
     <Tabs

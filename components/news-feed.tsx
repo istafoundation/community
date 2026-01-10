@@ -143,7 +143,6 @@ export function NewsFeed({
 }: NewsFeedProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  // removed accentColor
   const [refreshing, setRefreshing] = React.useState(false);
   const flatListRef = React.useRef<FlatList>(null);
 
