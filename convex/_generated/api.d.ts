@@ -9,6 +9,7 @@
  */
 
 import type * as chat from "../chat.js";
+import type * as events from "../events.js";
 import type * as users from "../users.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   chat: typeof chat;
+  events: typeof events;
   users: typeof users;
 }>;
 

@@ -43,6 +43,14 @@ function RootLayoutNav() {
             animation: 'slide_from_bottom',
           }} 
         />
+        <Stack.Screen 
+          name="event" 
+          options={{ 
+            headerShown: false,
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+          }} 
+        />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       

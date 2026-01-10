@@ -24,4 +24,19 @@ export default defineSchema({
     ),
     updatedAt: v.number(),
   }).index("by_clerk_id", ["clerkId"]),
+
+  // Community events
+  events: defineTable({
+    title: v.string(),
+    heroImage: v.string(),
+    location: v.string(),
+    dateTime: v.number(), // Unix timestamp
+    content: v.string(), // Markdown content
+    authorClerkId: v.string(),
+    authorUsername: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_date_time", ["dateTime"])
+    .index("by_author", ["authorClerkId"]),
 });
