@@ -51,6 +51,11 @@ export interface ConversationPreview {
   _id: Id<"conversations">;
   lastMessageAt: number;
   lastMessagePreview?: string;
+  // Encrypted preview for client-side decryption
+  lastMessageEncrypted?: boolean;
+  lastMessageCiphertext?: string;
+  lastMessageNonce?: string;
+  lastMessageSenderPublicKey?: string;
   otherUser: {
     clerkId: string;
     username: string;
@@ -577,12 +582,39 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
     setShowBackupModal(true);
   };
 
+  // Decrypt conversation previews
+  const decryptedConversations = useMemo(() => {
+    if (!conversations || !keyPair) return conversations || [];
+    
+    return conversations.map((conv) => {
+      // If not encrypted, return as-is
+      if (!conv.lastMessageEncrypted || !conv.lastMessageCiphertext || !conv.lastMessageNonce || !conv.lastMessageSenderPublicKey) {
+        return conv;
+      }
+      
+      // Decrypt the preview
+      const decryptedPreview = decryptMessage(
+        conv.lastMessageCiphertext,
+        conv.lastMessageNonce,
+        conv.lastMessageSenderPublicKey,
+        keyPair.secretKey
+      );
+      
+      return {
+        ...conv,
+        lastMessagePreview: decryptedPreview 
+          ? (decryptedPreview.length > 50 ? decryptedPreview.substring(0, 50) + "..." : decryptedPreview)
+          : conv.lastMessagePreview,
+      };
+    });
+  }, [conversations, keyPair]);
+
   return (
     <DirectChatContext.Provider
       value={{
         syncProfile,
         isProfileSynced,
-        conversations: conversations || [],
+        conversations: decryptedConversations as ConversationPreview[],
         isLoadingConversations: conversations === undefined,
         totalUnreadCount: totalUnreadCount || 0,
         currentConversationId,

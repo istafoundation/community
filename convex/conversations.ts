@@ -61,6 +61,11 @@ export const getConversations = query({
           _id: conv._id,
           lastMessageAt: conv.lastMessageAt,
           lastMessagePreview: conv.lastMessagePreview,
+          // Encrypted preview for client-side decryption
+          lastMessageEncrypted: conv.lastMessageEncrypted,
+          lastMessageCiphertext: conv.lastMessageCiphertext,
+          lastMessageNonce: conv.lastMessageNonce,
+          lastMessageSenderPublicKey: conv.lastMessageSenderPublicKey,
           otherUser: otherProfile
             ? {
                 clerkId: otherProfile.clerkId,
