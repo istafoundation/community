@@ -42,8 +42,14 @@ export const sendMessage = mutation({
       createdAt: now,
     });
 
+    // Get sender profile for E2E public key (needed for encrypted preview)
+    const senderProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.senderId))
+      .first();
+
     // Update conversation with last message info
-    // For encrypted messages, show generic preview
+    // For encrypted messages, store data for client-side decryption
     const preview = args.encrypted
       ? "🔒 Encrypted message"
       : args.content.length > 50
@@ -53,6 +59,11 @@ export const sendMessage = mutation({
     await ctx.db.patch(args.conversationId, {
       lastMessageAt: now,
       lastMessagePreview: preview,
+      // Store encrypted preview data for client-side decryption
+      lastMessageEncrypted: args.encrypted || false,
+      lastMessageCiphertext: args.encrypted ? args.content : undefined,
+      lastMessageNonce: args.nonce,
+      lastMessageSenderPublicKey: args.encrypted ? senderProfile?.publicKey : undefined,
     });
 
     // Get recipient for push notification
@@ -66,24 +77,29 @@ export const sendMessage = mutation({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", recipientId))
       .first();
 
-    // Get sender profile for name
-    const senderProfile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.senderId))
-      .first();
-
     // Send push notification if recipient has a token
     if (recipientProfile?.pushToken) {
       const senderName = senderProfile?.displayName || senderProfile?.username || "Someone";
+      
+      // For encrypted messages, send data payload for client-side decryption
+      // For unencrypted, send the actual content
       const pushBody = args.encrypted 
-        ? "🔒 New encrypted message" 
+        ? "New message" // Fallback text (will be replaced by client)
         : (args.content.length > 100 ? args.content.substring(0, 100) + "..." : args.content);
 
       await ctx.scheduler.runAfter(0, (internal as any).notifications.sendPush, {
         pushToken: recipientProfile.pushToken,
         title: senderName,
         body: pushBody,
-        data: { conversationId: args.conversationId },
+        data: { 
+          conversationId: args.conversationId,
+          // Encrypted payload for client-side decryption
+          encrypted: args.encrypted,
+          ciphertext: args.encrypted ? args.content : undefined,
+          nonce: args.nonce,
+          senderPublicKey: senderProfile?.publicKey,
+          senderName,
+        },
       });
     }
 

@@ -85,6 +85,11 @@ export default defineSchema({
     participant2: v.string(), // clerkId (alphabetically second)
     lastMessageAt: v.number(),
     lastMessagePreview: v.optional(v.string()),
+    // Encrypted preview for client-side decryption
+    lastMessageEncrypted: v.optional(v.boolean()),
+    lastMessageCiphertext: v.optional(v.string()),
+    lastMessageNonce: v.optional(v.string()),
+    lastMessageSenderPublicKey: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_participant1", ["participant1"])
