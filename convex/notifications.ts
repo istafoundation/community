@@ -11,15 +11,33 @@ export const sendPush = internalAction({
   handler: async (_ctx, args) => {
     if (!args.pushToken) return;
 
-    const message = {
-      to: args.pushToken,
-      sound: "default",
-      title: args.title,
-      body: args.body,
-      data: args.data || {},
-      priority: "high",
-      channelId: "chat",
-    };
+    // Check if this is an encrypted message that should be handled by native service
+    const isEncrypted = args.data?.encrypted === true;
+
+    // For encrypted messages, send data-only notification
+    // This allows the Android NotificationService to intercept and decrypt
+    const message = isEncrypted
+      ? {
+          to: args.pushToken,
+          data: {
+            ...args.data,
+            // Include fallback title/body in data for the native service
+            fallbackTitle: args.title,
+            fallbackBody: args.body,
+          },
+          priority: "high",
+          channelId: "chat",
+          // No title/body = data-only message, handled by our NotificationService
+        }
+      : {
+          to: args.pushToken,
+          sound: "default",
+          title: args.title,
+          body: args.body,
+          data: args.data || {},
+          priority: "high",
+          channelId: "chat",
+        };
 
     try {
       const response = await fetch("https://exp.host/--/api/v2/push/send", {
