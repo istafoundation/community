@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.istacommunity.mobile",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 19,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
