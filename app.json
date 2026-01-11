@@ -2,7 +2,7 @@
   "expo": {
     "name": "ISTA Community",
     "slug": "ista-community",
-    "version": "1.0.19",
+    "version": "1.0.20",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "istacommunity",
@@ -14,7 +14,7 @@
     "android": {
       "package": "com.istacommunity.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 19,
+      "versionCode": 20,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
