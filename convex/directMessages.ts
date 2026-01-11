@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // Send a new message
 export const sendMessage = mutation({
@@ -64,6 +65,27 @@ export const sendMessage = mutation({
       .query("userProfiles")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", recipientId))
       .first();
+
+    // Get sender profile for name
+    const senderProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.senderId))
+      .first();
+
+    // Send push notification if recipient has a token
+    if (recipientProfile?.pushToken) {
+      const senderName = senderProfile?.displayName || senderProfile?.username || "Someone";
+      const pushBody = args.encrypted 
+        ? "🔒 New encrypted message" 
+        : (args.content.length > 100 ? args.content.substring(0, 100) + "..." : args.content);
+
+      await ctx.scheduler.runAfter(0, (internal as any).notifications.sendPush, {
+        pushToken: recipientProfile.pushToken,
+        title: senderName,
+        body: pushBody,
+        data: { conversationId: args.conversationId },
+      });
+    }
 
     // Return message info, push token, and recipient's public key
     return {

@@ -14,7 +14,6 @@ import { api } from "../convex/_generated/api";
 import { Id } from "../convex/_generated/dataModel";
 import {
   registerForPushNotificationsAsync,
-  sendPushNotification,
   addNotificationResponseListener,
 } from "../utils/notifications";
 import {
@@ -337,23 +336,8 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
           nonce,
         });
 
-        if (result.success && result.recipientPushToken) {
-          // Send push notification (encrypted content not shown)
-          const senderName = user?.username || "Someone";
-          const pushBody = encrypted 
-            ? "🔒 New encrypted message" 
-            : (content.length > 100 ? content.substring(0, 100) + "..." : content);
-          
-          console.log("[DirectChat] Sending push notification to:", result.recipientPushToken.substring(0, 20) + "...");
-          const sent = await sendPushNotification(
-            result.recipientPushToken,
-            senderName,
-            pushBody,
-            { conversationId: currentConversationId }
-          );
-          console.log("[DirectChat] Push notification sent:", sent);
-        } else if (result.success && !result.recipientPushToken) {
-          console.log("[DirectChat] No recipient push token available");
+        if (result.success) {
+          console.log("[DirectChat] Message sent successfully");
         }
 
         return result.success ?? false;

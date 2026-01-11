@@ -13,6 +13,7 @@ import type * as conversations from "../conversations.js";
 import type * as directMessages from "../directMessages.js";
 import type * as events from "../events.js";
 import type * as friendRequests from "../friendRequests.js";
+import type * as notifications from "../notifications.js";
 import type * as userProfiles from "../userProfiles.js";
 import type * as users from "../users.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   directMessages: typeof directMessages;
   events: typeof events;
   friendRequests: typeof friendRequests;
+  notifications: typeof notifications;
   userProfiles: typeof userProfiles;
   users: typeof users;
 }>;
