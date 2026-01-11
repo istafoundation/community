@@ -587,25 +587,36 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
     if (!conversations || !keyPair) return conversations || [];
     
     return conversations.map((conv) => {
-      // If not encrypted, return as-is
-      if (!conv.lastMessageEncrypted || !conv.lastMessageCiphertext || !conv.lastMessageNonce || !conv.lastMessageSenderPublicKey) {
+      // If not encrypted or no other user, return as-is
+      if (!conv.lastMessageEncrypted || !conv.lastMessageCiphertext || !conv.lastMessageNonce) {
         return conv;
       }
       
-      // Decrypt the preview
-      const decryptedPreview = decryptMessage(
-        conv.lastMessageCiphertext,
-        conv.lastMessageNonce,
-        conv.lastMessageSenderPublicKey,
-        keyPair.secretKey
-      );
+      // Use the other user's public key for decryption (NaCl box always uses other party's key)
+      const otherUserPublicKey = conv.otherUser?.publicKey;
+      if (!otherUserPublicKey) {
+        return conv;
+      }
       
-      return {
-        ...conv,
-        lastMessagePreview: decryptedPreview 
-          ? (decryptedPreview.length > 50 ? decryptedPreview.substring(0, 50) + "..." : decryptedPreview)
-          : conv.lastMessagePreview,
-      };
+      try {
+        // Decrypt the preview
+        const decryptedPreview = decryptMessage(
+          conv.lastMessageCiphertext,
+          conv.lastMessageNonce,
+          otherUserPublicKey,
+          keyPair.secretKey
+        );
+        
+        return {
+          ...conv,
+          lastMessagePreview: decryptedPreview 
+            ? (decryptedPreview.length > 50 ? decryptedPreview.substring(0, 50) + "..." : decryptedPreview)
+            : conv.lastMessagePreview,
+        };
+      } catch (e) {
+        // If decryption fails, keep the original preview
+        return conv;
+      }
     });
   }, [conversations, keyPair]);
 
