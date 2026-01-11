@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,22 +8,20 @@ import {
   Pressable,
   Platform,
   StatusBar,
-  Keyboard,
-  Animated,
-  Easing,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   ActivityIndicator,
   BackHandler,
+  KeyboardAvoidingView,
+  Keyboard,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
+import { Image } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useDirectChat, DirectMessage } from "@/contexts/direct-chat-context";
+import { useDirectChat, DirectMessage, DECRYPTION_FAILED_FLAG } from "@/contexts/direct-chat-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import MessageBubble from "@/components/chat/MessageBubble";
@@ -33,28 +31,42 @@ export default function ConversationScreen() {
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
   const { userId } = useAuth();
-  const params = useLocalSearchParams<{ conversationId: string }>();
+  const params = useLocalSearchParams<{ 
+    conversationId: string;
+    initialUsername?: string;
+    initialDisplayName?: string;
+    initialAvatarUrl?: string;
+    initialLastSeen?: string;
+    initialIsOnline?: string;
+  }>();
   const conversationId = params.conversationId as Id<"conversations">;
 
   const { sendMessage, setCurrentConversation, currentMessages } = useDirectChat();
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const inputRef = useRef<TextInput>(null);
   
   // Selection mode state: Set of selected message IDs
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   
-  // Keyboard handling
+  // Keyboard visibility state
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const inputTranslateY = useRef(new Animated.Value(0)).current;
-  const TAB_BAR_HEIGHT = 0;
-  const INPUT_GAP = 8;
   
-  // Scroll tracking
-  const isUserNearBottomRef = useRef(true);
-  const NEAR_BOTTOM_THRESHOLD = 150;
-
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+  
   // Get conversation details
   const conversationDetails = useQuery(
     api.conversations.getConversation,
@@ -103,7 +115,7 @@ export default function ConversationScreen() {
   // Mark as read when new messages arrive
   useEffect(() => {
     if (conversationId && userId && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
+      const lastMessage = messages[messages.length - 1]; // Latest message (end of array)
       if (lastMessage.senderId !== userId && lastMessage.status !== "read") {
         markAsReadMutation({
           conversationId,
@@ -113,65 +125,11 @@ export default function ConversationScreen() {
     }
   }, [messages, conversationId, userId, markAsReadMutation]);
 
-  // Keyboard handling
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      const kbHeight = e.endCoordinates.height;
-      const targetHeight = Math.max(0, kbHeight - TAB_BAR_HEIGHT + INPUT_GAP);
-      setKeyboardHeight(kbHeight);
-
-      Animated.timing(inputTranslateY, {
-        toValue: -targetHeight,
-        duration: Platform.OS === "ios" ? e.duration : 150,
-        easing: Platform.OS === "ios" ? Easing.bezier(0.33, 0.01, 0, 1) : Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }).start();
-
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    });
-
-    const hideSub = Keyboard.addListener(hideEvent, (e) => {
-      setKeyboardHeight(0);
-      Animated.timing(inputTranslateY, {
-        toValue: 0,
-        duration: Platform.OS === "ios" ? (e?.duration || 200) : 150,
-        easing: Platform.OS === "ios" ? Easing.bezier(0.33, 0.01, 0, 1) : Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }).start();
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    if (messages.length > 0 && isUserNearBottomRef.current) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [messages.length]);
-
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
-    isUserNearBottomRef.current = distanceFromBottom < NEAR_BOTTOM_THRESHOLD;
-  }, []);
-
   const handleSend = useCallback(async () => {
     if (!inputText.trim() || isSending) return;
     const message = inputText.trim();
     setInputText("");
     setIsSending(true);
-    isUserNearBottomRef.current = true;
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-      inputRef.current?.focus();
-    }, 50);
     await sendMessage(message, "text");
     setIsSending(false);
   }, [inputText, isSending, sendMessage]);
@@ -240,17 +198,27 @@ export default function ConversationScreen() {
     return `${days} days ago`;
   };
 
+  // Reverse messages for inverted FlatList
+  const invertedMessages = useMemo(() => {
+    return [...messages].reverse();
+  }, [messages]);
+
   const renderMessage = useCallback(
     ({ item, index }: { item: DirectMessage; index: number }) => {
       const isOwn = item.senderId === userId;
-      const prevMessage = index > 0 ? messages[index - 1] : null;
+      // In inverted list:
+      // index is current message
+      // index + 1 is the *previous* message in time (older)
+      const prevMessage = invertedMessages[index + 1];
+      
       const showDateHeader =
         !prevMessage ||
         new Date(item.createdAt).toDateString() !== new Date(prevMessage.createdAt).toDateString();
+      
       const isSelected = selectedMessageIds.has(item._id);
 
       return (
-        <>
+        <View>
           {showDateHeader && (
             <View style={styles.dateHeader}>
               <Text style={[styles.dateText, isDark && styles.dateTextDark]}>
@@ -262,6 +230,7 @@ export default function ConversationScreen() {
               </Text>
             </View>
           )}
+          
           <Pressable
             style={[
               styles.messageRow,
@@ -276,16 +245,24 @@ export default function ConversationScreen() {
               isOwn={isOwn}
               timestamp={item.createdAt}
               status={isOwn ? item.status : undefined}
-              messageType={item.messageType}
+              messageType={item.messageType as any}
             />
           </Pressable>
-        </>
+        </View>
       );
     },
-    [userId, messages, isDark, selectedMessageIds, handleMessageLongPress, handleMessagePress]
+    [userId, invertedMessages, isDark, selectedMessageIds, handleMessageLongPress, handleMessagePress]
   );
+  
+  const otherUser = conversationDetails?.otherUser || {
+    username: params.initialUsername || "User",
+    displayName: params.initialDisplayName,
+    avatarUrl: params.initialAvatarUrl,
+    lastSeen: params.initialLastSeen ? parseInt(params.initialLastSeen) : 0,
+    isOnline: params.initialIsOnline === "true",
+  };
 
-  if (!conversationDetails) {
+  if (!conversationDetails && !params.initialUsername) {
     return (
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -303,106 +280,159 @@ export default function ConversationScreen() {
     );
   }
 
-  const otherUser = conversationDetails.otherUser;
   const isSelectionMode = selectedMessageIds.size > 0;
+  const hasDecryptionErrors = useMemo(() => {
+    return messages.some(m => m.content === DECRYPTION_FAILED_FLAG);
+  }, [messages]);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-      {/* Selection Mode Header */}
-      {isSelectionMode ? (
-        <View style={[styles.selectionHeader, isDark && styles.selectionHeaderDark, { paddingTop: insets.top }]}>
-          <Pressable onPress={handleClearSelection} style={styles.backButton}>
-            <Ionicons name="close" size={28} color={isDark ? "#fff" : "#000"} />
-          </Pressable>
-          <View style={styles.selectionHeaderContent}>
-            <Text style={[styles.selectionCount, isDark && styles.textDark]}>
-              {selectedMessageIds.size} selected
-            </Text>
+      {/* Header - Fixed at top */}
+      <View style={{ paddingTop: insets.top, backgroundColor: isDark ? "#1c1c1e" : "#fff", zIndex: 10 }}>
+        {isSelectionMode ? (
+          <View style={[styles.selectionHeader, isDark && styles.selectionHeaderDark]}>
+            <Pressable onPress={handleClearSelection} style={styles.backButton}>
+              <Ionicons name="close" size={28} color={isDark ? "#fff" : "#000"} />
+            </Pressable>
+            <View style={styles.selectionHeaderContent}>
+              <Text style={[styles.selectionCount, isDark && styles.textDark]}>
+                {selectedMessageIds.size} selected
+              </Text>
+            </View>
+            <Pressable onPress={handleCopy} style={styles.actionButton}>
+              <Ionicons name="copy-outline" size={24} color={isDark ? "#fff" : "#000"} />
+            </Pressable>
           </View>
-          <Pressable onPress={handleCopy} style={styles.actionButton}>
-            <Ionicons name="copy-outline" size={24} color={isDark ? "#fff" : "#000"} />
-          </Pressable>
-        </View>
-      ) : (
-        /* Normal Header */
-        <View style={[styles.header, isDark && styles.headerDark, { paddingTop: insets.top }]}>
-          <Pressable onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#007AFF" />
-          </Pressable>
-          <Pressable style={styles.headerContent}>
-            <View style={styles.avatarSmall}>
-              <Text style={styles.avatarInitialSmall}>
-                {(otherUser?.displayName || otherUser?.username || "?").charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.headerInfo}>
-              <Text style={[styles.headerName, isDark && styles.textDark]}>
-                {otherUser?.displayName || `@${otherUser?.username}`}
-              </Text>
-              <Text style={[styles.headerStatus, isDark && styles.textMuted]}>
-                {otherUser?.isOnline ? "Online" : `last seen ${formatLastSeen(otherUser?.lastSeen || 0)}`}
-              </Text>
-            </View>
-          </Pressable>
+        ) : (
+          <View style={[styles.header, isDark && styles.headerDark]}>
+            <Pressable onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={28} color="#007AFF" />
+            </Pressable>
+            <Pressable style={styles.headerContent}>
+              <View style={styles.avatarSmall}>
+                {otherUser?.avatarUrl ? (
+                  <Image
+                    source={{ uri: otherUser.avatarUrl }}
+                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                  />
+                ) : (
+                  <Text style={styles.avatarInitialSmall}>
+                    {(otherUser?.displayName || otherUser?.username || "?").charAt(0).toUpperCase()}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.headerInfo}>
+                <Text style={[styles.headerName, isDark && styles.textDark]}>
+                  {otherUser?.displayName || `@${otherUser?.username}`}
+                </Text>
+                <Text style={[styles.headerStatus, isDark && styles.textMuted]}>
+                  {otherUser?.isOnline ? "Online" : `last seen ${formatLastSeen(otherUser?.lastSeen || 0)}`}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        )}
+      </View>
+      
+      {/* Security Banner */}
+      {hasDecryptionErrors && (
+        <View style={[styles.securityBanner, isDark && styles.securityBannerDark]}>
+            <Ionicons name="lock-closed" size={14} color="#856404" />
+            <Text style={[styles.securityBannerText, isDark && styles.securityBannerTextDark]}>
+              Security code changed. Some messages are unavailable.
+            </Text>
         </View>
       )}
 
-      {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item._id}
-        style={styles.chatArea}
-        contentContainerStyle={[styles.messageList, { paddingBottom: 80 + keyboardHeight }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        keyboardDismissMode="none"
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onContentSizeChange={() => {
-          if (isUserNearBottomRef.current) {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }
-        }}
-        removeClippedSubviews={Platform.OS === "android"}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        initialNumToRender={15}
-      />
-
-      {/* Input Area */}
-      <Animated.View
-        style={[styles.inputArea, isDark && styles.inputAreaDark, { transform: [{ translateY: inputTranslateY }] }]}
-      >
-        <View style={[styles.inputBox, isDark && styles.inputBoxDark]}>
-          <TextInput
-            ref={inputRef}
-            style={[styles.textInput, isDark && styles.textInputDark]}
-            placeholder={isSending ? "Sending..." : "Type a message..."}
-            placeholderTextColor={isDark ? "#666" : "#999"}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
-            blurOnSubmit={false}
-            returnKeyType="default"
+      {/* Chat Content - different handling for iOS vs Android */}
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1, backgroundColor: isDark ? "#000" : "#f2f2f7" }}
+          behavior="padding"
+          keyboardVerticalOffset={insets.top + 56}
+        >
+          <FlatList
+            ref={flatListRef}
+            data={invertedMessages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item._id}
+            style={styles.chatArea}
+            contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
+            inverted
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           />
-          <Pressable
-            style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || isSending}
-          >
-            {isSending ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons name="send" size={18} color={!inputText.trim() ? "#999" : "#fff"} />
-            )}
-          </Pressable>
+          <View style={[styles.inputArea, isDark && styles.inputAreaDark, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 12) }]}>
+            <View style={[styles.inputBox, isDark && styles.inputBoxDark]}>
+              <TextInput
+                style={[styles.textInput, isDark && styles.textInputDark]}
+                placeholder={isSending ? "Sending..." : "Type a message..."}
+                placeholderTextColor={isDark ? "#666" : "#999"}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={1000}
+                blurOnSubmit={false}
+                returnKeyType="default"
+              />
+              <Pressable
+                style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
+                onPress={handleSend}
+                disabled={!inputText.trim() || isSending}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color={!inputText.trim() ? "#999" : "#fff"} />
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      ) : (
+        /* Android: Manual keyboard height handling to avoid black gap */
+        <View style={{ flex: 1, backgroundColor: isDark ? "#000" : "#f2f2f7" }}>
+          <FlatList
+            ref={flatListRef}
+            data={invertedMessages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item._id}
+            style={styles.chatArea}
+            contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
+            inverted
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          />
+          <View style={[styles.inputArea, isDark && styles.inputAreaDark, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 12) }]}>
+            <View style={[styles.inputBox, isDark && styles.inputBoxDark]}>
+              <TextInput
+                style={[styles.textInput, isDark && styles.textInputDark]}
+                placeholder={isSending ? "Sending..." : "Type a message..."}
+                placeholderTextColor={isDark ? "#666" : "#999"}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={1000}
+                blurOnSubmit={false}
+                returnKeyType="default"
+              />
+              <Pressable
+                style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
+                onPress={handleSend}
+                disabled={!inputText.trim() || isSending}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color={!inputText.trim() ? "#999" : "#fff"} />
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
-      </Animated.View>
+      )}
     </View>
   );
 }
@@ -500,12 +530,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageList: {
+    paddingHorizontal: 0,
     paddingVertical: 16,
   },
   messageRow: {
     width: "100%",
     paddingHorizontal: 16,
     paddingVertical: 2,
+    marginVertical: 1,
   },
   selectedRowLight: {
     backgroundColor: "rgba(0, 0, 0, 0.1)", // Dark overlay for light mode
@@ -531,16 +563,11 @@ const styles = StyleSheet.create({
     color: "#8e8e93",
   },
   inputArea: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#e5e5e5",
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 34,
   },
   inputAreaDark: {
     backgroundColor: "#1c1c1e",
@@ -580,5 +607,28 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: "#e5e5e5",
+  },
+  securityBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff3cd",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ffeeba",
+    gap: 8,
+  },
+  securityBannerDark: {
+    backgroundColor: "#2c2500",
+    borderBottomColor: "#4d4100",
+  },
+  securityBannerText: {
+    fontSize: 12,
+    color: "#856404",
+    fontWeight: "500",
+  },
+  securityBannerTextDark: {
+    color: "#ffc107",
   },
 });

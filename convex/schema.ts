@@ -97,7 +97,7 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     senderId: v.string(), // clerkId
     content: v.string(), // Encrypted ciphertext (Base64) or plaintext for legacy
-    messageType: v.union(v.literal("text"), v.literal("emoji")),
+    messageType: v.union(v.literal("text"), v.literal("emoji"), v.literal("system")),
     status: v.union(
       v.literal("sent"), // Single grey tick - server received
       v.literal("delivered"), // Double grey tick - recipient received
@@ -113,4 +113,13 @@ export default defineSchema({
     .index("by_conversation", ["conversationId", "createdAt"])
     .index("by_sender", ["senderId"])
     .index("by_status", ["conversationId", "status"]),
+
+  // Encrypted Key Backups
+  userKeys: defineTable({
+    clerkId: v.string(),
+    encryptedPrivateKey: v.string(), // Base64 encrypted private key
+    salt: v.string(), // PBKDF2 salt
+    iv: v.string(), // AES IV
+    createdAt: v.number(),
+  }).index("by_clerk_id", ["clerkId"]),
 });

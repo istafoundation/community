@@ -17,6 +17,8 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as SecureStore from 'expo-secure-store';
+import { clearEncryptionKeys } from '@/utils/crypto';
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
@@ -65,6 +67,10 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Wipe keys before signing out (independently)
+              await clearEncryptionKeys().catch(e => console.log('Key wipe error', e));
+              await SecureStore.deleteItemAsync("e2e_restored").catch(e => console.log('Flag wipe error', e));
+              
               await signOut();
             } catch (err) {
               console.error('Sign out error:', err);

@@ -45,6 +45,33 @@ export function generateKeyPair(): KeyPair {
   };
 }
 
+// ... (previous code)
+
+/**
+ * Restore key pair from a specific secret key (Restored from backup)
+ */
+export async function restoreKeyPairFromSecret(secretKeyBase64: string): Promise<KeyPair> {
+  try {
+    const secretKeyBytes = decodeBase64(secretKeyBase64);
+    const keyPair = nacl.box.keyPair.fromSecretKey(secretKeyBytes);
+    
+    const newKeyPair = {
+      publicKey: encodeBase64(keyPair.publicKey),
+      secretKey: encodeBase64(keyPair.secretKey),
+    };
+
+    // Store in SecureStore
+    await SecureStore.setItemAsync(PRIVATE_KEY_STORE_KEY, newKeyPair.secretKey);
+    await SecureStore.setItemAsync(PUBLIC_KEY_STORE_KEY, newKeyPair.publicKey);
+
+    console.log('[E2E] Restored key pair from backup');
+    return newKeyPair;
+  } catch (error) {
+    console.error('[E2E] Error restoring key pair:', error);
+    throw error;
+  }
+}
+
 /**
  * Get existing key pair from SecureStore, or generate and store a new one
  */

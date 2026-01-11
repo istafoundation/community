@@ -28,6 +28,8 @@ export default function ChatScreen() {
     setCurrentConversation,
     pendingRequestCount,
     syncProfile,
+    verifyBackupAccess,
+    isChatUnlocked,
   } = useDirectChat();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,7 +55,14 @@ export default function ChatScreen() {
       setCurrentConversation(conversation._id);
       router.push({
         pathname: "/conversation",
-        params: { conversationId: conversation._id },
+        params: { 
+          conversationId: conversation._id,
+          initialUsername: conversation.otherUser?.username,
+          initialDisplayName: conversation.otherUser?.displayName,
+          initialAvatarUrl: conversation.otherUser?.avatarUrl,
+          initialLastSeen: conversation.otherUser?.lastSeen?.toString(),
+          initialIsOnline: conversation.otherUser?.isOnline ? "true" : "false",
+        },
       });
     },
     [setCurrentConversation]
@@ -108,6 +117,38 @@ export default function ChatScreen() {
             onPress={() => router.push("/(auth)/sign-in")}
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Check for chat lock
+  if (isSignedIn && !isChatUnlocked) {
+    return (
+      <View style={[styles.container, isDark && styles.containerDark]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <Ionicons name="chatbubbles" size={28} color="#007AFF" />
+          <Text style={[styles.title, isDark && styles.textDark]}>Chats</Text>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={80}
+            color="#007AFF"
+          />
+          <Text style={[styles.emptyTitle, isDark && styles.textDark]}>
+            Chats are Secured
+          </Text>
+          <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
+            To access your encrypted message history, you must verify your security PIN.
+          </Text>
+          <Pressable
+            style={styles.signInButton}
+            onPress={() => verifyBackupAccess()}
+          >
+            <Text style={styles.signInButtonText}>Unlock Chats</Text>
           </Pressable>
         </View>
       </View>

@@ -18,17 +18,24 @@ import {
 } from "../utils/notifications";
 import {
   getOrCreateKeyPair,
+  restoreKeyPairFromSecret,
   encryptMessage,
   decryptMessage,
   KeyPair,
 } from "../utils/crypto";
+import { encryptPrivateKeyWithPin, decryptPrivateKeyWithPin } from "../utils/key-backup";
+import KeyBackupModal from "@/components/chat/KeyBackupModal";
+import * as SecureStore from "expo-secure-store";
+import { router } from "expo-router";
+
+export const DECRYPTION_FAILED_FLAG = "___DECRYPTION_FAILED___";
 
 export interface DirectMessage {
   _id: Id<"directMessages">;
   conversationId: Id<"conversations">;
   senderId: string;
   content: string;
-  messageType: "text" | "emoji";
+  messageType: "text" | "emoji" | "system";
   status: "sent" | "delivered" | "read";
   createdAt: number;
   deliveredAt?: number;
@@ -60,27 +67,19 @@ interface DirectChatContextType {
   // Profile
   syncProfile: () => Promise<void>;
   isProfileSynced: boolean;
-
-  // Conversations
   conversations: ConversationPreview[];
   isLoadingConversations: boolean;
   totalUnreadCount: number;
-
-  // Current conversation
   currentConversationId: Id<"conversations"> | null;
   currentMessages: DirectMessage[];
   setCurrentConversation: (id: Id<"conversations"> | null) => void;
-
-  // Actions
   sendMessage: (content: string, type?: "text" | "emoji") => Promise<boolean>;
-  markAsRead: () => Promise<void>;
-  openConversationWithUser: (otherUserId: string) => Promise<Id<"conversations"> | null>;
-
-  // Friend requests
+  markAsRead: (conversationId: Id<"conversations">) => Promise<void>;
+  openConversationWithUser: (userId: string) => Promise<Id<"conversations"> | null>;
   pendingRequestCount: number;
-
-  // E2E encryption
   isE2EEnabled: boolean;
+  isChatUnlocked: boolean;
+  verifyBackupAccess: () => Promise<boolean>; 
 }
 
 const DirectChatContext = createContext<DirectChatContextType | undefined>(
@@ -98,16 +97,24 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
   // E2E encryption state
   const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
   const [isE2EEnabled, setIsE2EEnabled] = useState(false);
+  const [isBackupSetup, setIsBackupSetup] = useState(false);
+  const [isChatUnlocked, setIsChatUnlocked] = useState(false); // Default locked
+  
+  // Backup Modal State
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [backupMode, setBackupMode] = useState<"setup" | "restore" | "reset">("setup");
+  const [isProcessingBackup, setIsProcessingBackup] = useState(false);
 
   // Convex queries
+  // Gate these queries with isChatUnlocked
   const conversations = useQuery(
     api.conversations.getConversations,
-    userId ? { userId } : "skip"
+    userId && isChatUnlocked ? { userId } : "skip"
   );
 
   const totalUnreadCount = useQuery(
     api.conversations.getTotalUnreadCount,
-    userId ? { userId } : "skip"
+    userId && isChatUnlocked ? { userId } : "skip"
   );
 
   const pendingRequestCount = useQuery(
@@ -142,6 +149,151 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
   const getOrCreateConversationMutation = useMutation(
     api.conversations.getOrCreateConversation
   );
+  
+  // Backup mutations
+  const storeBackupMutation = useMutation(api.userKeys.storeBackup);
+  const getBackupQuery = useQuery(api.userKeys.getBackup, userId ? { clerkId: userId } : "skip");
+
+  // Reset state on auth change
+  useEffect(() => {
+    if (!userId) {
+      console.log("[DirectChat] User signed out, locking chats");
+      setIsChatUnlocked(false);
+      setKeyPair(null);
+      setIsE2EEnabled(false);
+    }
+  }, [userId]);
+
+  // Initialize E2E encryption on mount
+  useEffect(() => {
+    const initE2E = async () => {
+      console.log("[E2E] Initializing...");
+      try {
+        // 1. Check if we have local keys
+        const localKeys = await getOrCreateKeyPair(); // This might generate NEW keys if none exist
+        
+        // 2. Check if a backup exists on server (using query result)
+        // Note: query might be undefined initially. We rely on the effect re-running when query loads.
+        
+        setKeyPair(localKeys);
+        setIsE2EEnabled(true);
+        console.log("[E2E] Local keys loaded");
+
+        // Check if unlocked previously
+        const hasRestored = await SecureStore.getItemAsync("e2e_restored");
+        if (hasRestored === "true") {
+          setIsChatUnlocked(true);
+        }
+      } catch (error) {
+        console.error("[E2E] Failed to initialize:", error);
+        setIsE2EEnabled(false);
+      }
+    };
+    initE2E();
+  }, []); // Only run once for local init
+
+  // Public method to verify/enforce backup access
+  // Called when user enters chat screens
+  const verifyBackupAccess = useCallback(async (): Promise<boolean> => {
+    if (!userId || getBackupQuery === undefined) return false;
+    
+    // If already verified/restored locally
+    const hasRestored = await SecureStore.getItemAsync("e2e_restored");
+    if (hasRestored) {
+        setIsBackupSetup(true);
+        setIsChatUnlocked(true);
+        return true;
+    }
+
+    // Check server status
+    if (getBackupQuery) {
+        // Needs restore
+        setBackupMode("restore");
+        setShowBackupModal(true);
+        return false;
+    } else {
+        // Needs setup
+        setBackupMode("setup");
+        setShowBackupModal(true);
+        return false;
+    }
+  }, [userId, getBackupQuery]);
+
+  // Handle PIN Submission
+  const handleBackupSubmit = async (pin: string): Promise<boolean> => {
+    setIsProcessingBackup(true);
+    try {
+      if (backupMode === "setup") {
+        if (!keyPair) throw new Error("No keys to backup");
+        
+        // Encrypt current private key
+        const { encryptedPrivateKey, salt, iv } = await encryptPrivateKeyWithPin(keyPair.secretKey, pin);
+        
+        // Upload to Convex
+        await storeBackupMutation({
+          clerkId: userId!,
+          encryptedPrivateKey,
+          salt,
+          iv,
+        });
+        
+        await SecureStore.setItemAsync("e2e_restored", "true");
+        setIsBackupSetup(true);
+        setIsChatUnlocked(true);
+        setShowBackupModal(false);
+        return true;
+        
+      } else if (backupMode === "restore") {
+        if (!getBackupQuery) throw new Error("No backup found");
+        
+        // Decrypt key from backup
+        const decryptedSecretKey = await decryptPrivateKeyWithPin(
+          getBackupQuery.encryptedPrivateKey,
+          pin,
+          getBackupQuery.salt,
+          getBackupQuery.iv
+        );
+        
+        if (!decryptedSecretKey) {
+          alert("Incorrect PIN");
+          setIsProcessingBackup(false);
+          return false;
+        }
+        
+        if (!decryptedSecretKey) {
+          alert("Incorrect PIN");
+          setIsProcessingBackup(false);
+          return false;
+        }
+        
+        // Restore key pair properly
+        const restoredKeys = await restoreKeyPairFromSecret(decryptedSecretKey);
+        setKeyPair(restoredKeys);
+        
+        await SecureStore.setItemAsync("e2e_restored", "true");
+        setIsChatUnlocked(true);
+        setShowBackupModal(false);
+        return true;
+      } else if (backupMode === "reset") {
+        // RESET FLOW
+        // 1. Generate NEW Key Pair (overwriting old)
+        // 2. Encrypt with NEW PIN
+        // 3. Upload
+        // 4. Notify everyone? (Optional, handled by "System Message" later if we add it)
+        
+        setIsProcessingBackup(false); // Done later
+        return true;
+      }
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert("Operation failed");
+      return false;
+    } finally {
+      setIsProcessingBackup(false);
+    }
+  };
+
 
   // Initialize E2E encryption on mount
   useEffect(() => {
@@ -264,14 +416,26 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
   // Decrypt messages when they arrive
   const decryptedMessages = useMemo(() => {
     const messages = currentConversationData?.messages || [];
+    // Helper to process messages when keys are missing
+    const processMissingKeys = (msg: DirectMessage) => {
+      if (msg.encrypted) {
+        return {
+          ...msg,
+          decryptedContent: DECRYPTION_FAILED_FLAG,
+          content: DECRYPTION_FAILED_FLAG,
+        };
+      }
+      return msg;
+    };
+
     if (!keyPair || !currentConversationDetails?.otherUser) {
-      return messages;
+      return messages.map(processMissingKeys);
     }
 
     const otherUserPublicKey = currentConversationDetails.otherUser.publicKey;
+    
     if (!otherUserPublicKey) {
-      // Other user doesn't have E2E enabled yet
-      return messages;
+      return messages.map(processMissingKeys);
     }
 
     return messages.map((msg) => {
@@ -280,23 +444,30 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
         return msg;
       }
 
-      // Determine which public key to use for decryption
-      // If we sent the message, we need the recipient's public key
-      // If they sent it, we need their public key
-      const senderPublicKey = msg.senderId === userId 
-        ? keyPair.publicKey 
-        : otherUserPublicKey;
+      // Determine which public key to use to derive the shared secret
+      // The shared secret is derived from (MyPriv + TheirPub) OR (TheirPriv + MyPub)
+      
+      // If I am the SENDER:
+      // I have MyPriv. I need TheirPub to derive the secret.
+      // So I pass "TheirPub" as the public key argument to box.open
+      
+      // If I am the RECEIVER:
+      // I have MyPriv. I need TheirPub (The Sender's Pub) to derive the secret.
+      // So I pass "TheirPub" (SenderPub) as the public key argument.
+      
+      // In BOTH cases, I simply need the "Other Person's Public Key" to combine with "My Private Key".
+      const otherPersonPublicKey = otherUserPublicKey;
 
       const decryptedContent = decryptMessage(
         msg.content,
         msg.nonce,
-        senderPublicKey,
-        keyPair.secretKey
+        otherPersonPublicKey, // Always use the OTHER person's public key
+        keyPair.secretKey     // Always use MY private key
       );
 
       return {
         ...msg,
-        decryptedContent: decryptedContent || "[Decryption failed]",
+        decryptedContent: decryptedContent || DECRYPTION_FAILED_FLAG,
         content: decryptedContent || msg.content,
       };
     });
@@ -399,6 +570,12 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
     },
     [userId, markAsReadMutation]
   );
+  
+  // Public function to trigger reset
+  const resetKeys = () => {
+    setBackupMode("reset");
+    setShowBackupModal(true);
+  };
 
   return (
     <DirectChatContext.Provider
@@ -416,9 +593,18 @@ export function DirectChatProvider({ children }: { children: React.ReactNode }) 
         openConversationWithUser,
         pendingRequestCount: pendingRequestCount || 0,
         isE2EEnabled,
+        isChatUnlocked,
+        verifyBackupAccess,
       }}
     >
       {children}
+      <KeyBackupModal
+        visible={showBackupModal}
+        mode={backupMode}
+        onSubmit={handleBackupSubmit}
+        isLoading={isProcessingBackup}
+        onCancel={backupMode === "reset" ? () => setShowBackupModal(false) : undefined}
+      />
     </DirectChatContext.Provider>
   );
 }
